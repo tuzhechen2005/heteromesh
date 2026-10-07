@@ -76,3 +76,30 @@ def test_bfloat_is_not_float16_and_nonfinite_separate():
     assert decode_tensor(nanraw).payload==b'\xc1\x7f'
     with pytest.raises(ProtocolError):validate_finite(decode_tensor(nanraw))
     with pytest.raises(ProtocolError):bf16_to_float32(b'x')
+
+
+def test_stream_copy_bounded_and_detects_bad_tail():
+    from heteromesh.protocol import copy_tensor
+    raw=encode_tensor('x','uint8',[5*1024*1024],b'x'*(5*1024*1024))
+    class BoundReader(io.BytesIO):
+        def read(self,n=-1):
+            assert 0<=n<=4*1024*1024
+            return super().read(n)
+    class BoundWriter(io.BytesIO):
+        def write(self,data):
+            assert len(data)<=4*1024*1024
+            return super().write(data[:65536])
+    sink=BoundWriter(); meta=copy_tensor(BoundReader(raw),sink)
+    assert sink.getvalue()==raw
+    assert meta['artifact_sha256']==hashlib.sha256(raw).hexdigest()
+    assert meta['header']['payload_bytes']==5*1024*1024
+    with pytest.raises(ProtocolError):copy_tensor(BoundReader(raw+b'x'),BoundWriter())
+    with pytest.raises(ProtocolError):copy_tensor(BoundReader(raw[:-1]+b'y'),BoundWriter())
+
+
+def test_unicode_distinct_keys_and_header_unknown_rejected():
+    value={'é':1,'e\u0301':2}
+    assert parse_json(canonical_json(value))==value
+    header=decode_tensor(encode_tensor('x','uint8',[0],b'')).header
+    header['extra']=1
+    with pytest.raises(ProtocolError):decode_tensor(wire(header))

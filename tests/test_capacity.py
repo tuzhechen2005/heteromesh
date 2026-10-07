@@ -35,3 +35,11 @@ def test_plan_rejects_unproven_capacity_and_capabilities(change):
     if change=='negative':fs[0]['memory']['host']['workspace_bytes']=-1
     if change=='inadequate_loading':fs[0]['memory']['host']['loading_peak_bytes']=90
     with pytest.raises(CapacityError):validate_placement(cap,fs)
+
+
+def test_underreported_weights_and_boundary_activations_rejected():
+    cap,fs=fixture()
+    fs[0]['weights'][0]['bytes']=1000
+    with pytest.raises(CapacityError):validate_placement(cap,fs)
+    cap,fs=fixture();fs[0]['inputs'][0]['shape']=[1024,1024]
+    with pytest.raises(CapacityError):validate_placement(cap,fs)
