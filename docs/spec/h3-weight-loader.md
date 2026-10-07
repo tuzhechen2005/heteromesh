@@ -16,9 +16,9 @@ safetensors 8-byte little-endian header 长度必须在 2..16 MiB 且不超过�
 
 ## W03 内存与并发边界
 
-selected bytes 是全部输出 CPU 张量总大小。loading accounting 至少为 selected bytes + 最大所选单 tensor bytes（当前 mmap 源页与 clone 重叠）+ 1 MiB hash buffer + 所有相关 header 原始长度；两预算均须显式提供且先校验。该 accounting 是明确的数据开销下界，不是物理 RSS 硬上限：JSON/Python 对象、torch/runtime、allocator、mmap 页预读与系统文件缓存另需 caller 预留/测量。GPU 转移期间 CPU 输出仍存活，GPU 权重、激活及工作区必须另算；不能以 resident weight 预算替代总峰值。
+selected bytes 是全部输出 CPU 张量总大小。loading accounting 至少为 selected bytes + 同一 shard 所选张量总 bytes 的最大值（safe_open 生命周期内已触及的多个源页可同时驻留，与 clone 重叠）+ 1 MiB hash buffer + 所有相关 header 原始长度；两预算均须显式提供且先校验。该 accounting 是明确的数据开销下界，不是物理 RSS 硬上限：JSON/Python 对象、torch/runtime、allocator、mmap 页预读与系统文件缓存另需 caller 预留/测量。GPU 转移期间 CPU 输出仍存活，GPU 权重、激活及工作区必须另算；不能以 resident weight 预算替代总峰值。
 
-文件目录须由调用方保证加载期间不被并发写入。读取前后比对文件身份/长度/mtime/ctime，并在 clone 后重新流式 hash；检测到修改拒绝并不返回结果。这不能对抗拥有本机文件写权限的恶意竞态（safe_open 按路径重新打开），不是安全沙箱；不可把网络上传的可变文件直接交给此接口。返回的 clone 不受之后文件修改影响。
+文件目录须由调用方保证加载期间不被并发写入。读取前后比对文件身份/长度/mtime/ctime；路径 stat 与 fd fstat 分别保存并比对各自完整基线，打开时二者 dev/inode/长度必须相同。Windows CPython 3.12 的两种调用可有不同 ctime 语义，不跨调用比较时间值，并在 clone 后重新流式 hash；检测到修改拒绝并不返回结果。这不能对抗拥有本机文件写权限的恶意竞态（safe_open 按路径重新打开），不是安全沙箱；不可把网络上传的可变文件直接交给此接口。返回的 clone 不受之后文件修改影响。
 
 ## W04 验证
 

@@ -155,7 +155,7 @@ def _load(root, shards, weight_map, expected, selected_budget, loading_budget):
     if type(expected) is not dict or not expected or len(expected) > 10000:
         raise WeightLoadError('expected must be a bounded nonempty mapping')
     selected_size = 0
-    largest = 0
+    sizes = {}
     for key, spec in expected.items():
         if type(key) is not str or not key or key == '__metadata__' or not isinstance(spec, WeightSpec):
             raise WeightLoadError('invalid expected tensor')
@@ -163,12 +163,9 @@ def _load(root, shards, weight_map, expected, selected_budget, loading_budget):
             raise WeightLoadError('unsupported expected dtype')
         size = math.prod(_shape(spec.shape)) * DTYPE_BYTES[spec.dtype]
         selected_size += size
-        largest = max(largest, size)
+        sizes[key] = size
     if selected_size > selected_budget:
         raise WeightLoadError('selected weight budget exceeded')
-    base_loading = selected_size + largest + CHUNK_BYTES
-    if base_loading > loading_budget:
-        raise WeightLoadError('loading overlap budget exceeded')
     if type(shards) is not dict or type(weight_map) is not dict:
         raise WeightLoadError('invalid shard/index mappings')
     grouped = {}
@@ -177,6 +174,10 @@ def _load(root, shards, weight_map, expected, selected_budget, loading_budget):
         if type(shard) is not str:
             raise WeightLoadError('invalid shard identifier')
         grouped.setdefault(shard, []).append(key)
+    largest_shard_selection = max(sum(sizes[key] for key in keys) for keys in grouped.values())
+    base_loading = selected_size + largest_shard_selection + CHUNK_BYTES
+    if base_loading > loading_budget:
+        raise WeightLoadError('loading overlap budget exceeded')
     if len(grouped) > 64:
         raise WeightLoadError('too many selected shards')
     root = Path(root).resolve(strict=True)
@@ -192,6 +193,11 @@ def _load(root, shards, weight_map, expected, selected_budget, loading_budget):
             path = _path(root, rec.path)
             handle = stack.enter_context(path.open('rb', buffering=0))
             identity = _identity(os.fstat(handle.fileno()))
+            path_identity = _identity(path.stat())
+            # On Windows, stat/fstat ctime semantics can differ. Compare each
+            # timestamp to its own baseline; file identity and size must agree.
+            if path_identity[:3] != identity[:3]:
+                raise WeightLoadError('shard changed while opening')
             if identity[2] != rec.size_bytes:
                 raise WeightLoadError('shard size mismatch')
             if _digest(handle) != rec.sha256:
@@ -201,21 +207,21 @@ def _load(root, shards, weight_map, expected, selected_budget, loading_budget):
             for key in keys:
                 if key not in specs or specs[key] != expected[key]:
                     raise WeightLoadError('selected shape/dtype/key mismatch')
-            prepared.append((rec, path, handle, identity, keys))
-        if selected_size + largest + CHUNK_BYTES + header_bytes > loading_budget:
+            prepared.append((rec, path, handle, identity, path_identity, keys))
+        if base_loading + header_bytes > loading_budget:
             raise WeightLoadError('loading overlap budget exceeded')
         result = {}
-        for rec, path, handle, identity, keys in prepared:
-            if _identity(path.stat()) != identity:
+        for rec, path, handle, identity, path_identity, keys in prepared:
+            if _identity(path.stat()) != path_identity:
                 raise WeightLoadError('shard changed before mmap')
             with safe_open(str(path), framework='pt', device='cpu') as reader:
                 for key in keys:
                     result[key] = reader.get_tensor(key).clone()
             if (_identity(os.fstat(handle.fileno())) != identity or
-                    _identity(path.stat()) != identity or _digest(handle) != rec.sha256):
+                    _identity(path.stat()) != path_identity or _digest(handle) != rec.sha256):
                 raise WeightLoadError('shard changed during loading')
         # Recheck earlier shards too, in case a later load overlaps a mutation.
-        for _, path, handle, identity, _ in prepared:
-            if _identity(os.fstat(handle.fileno())) != identity or _identity(path.stat()) != identity:
+        for _, path, handle, identity, path_identity, _ in prepared:
+            if _identity(os.fstat(handle.fileno())) != identity or _identity(path.stat()) != path_identity:
                 raise WeightLoadError('shard changed during loading')
         return result
