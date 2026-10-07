@@ -65,3 +65,7 @@ Artifact requests from workers carry `X-Job-Id`, `X-Recovery-Epoch`, `X-Attempt-
 - Combined local unittest suite after reviewed state fixes: 29 passed. Tests are loopback software evidence, not multi-physical-device or H3 evidence.
 
 Remaining product work includes full installation lifecycle, automatic placement, H3 adapter/scheduler checkpoints, device liveness policy, durable resume artifact audit and resource-policy UI. The admission callback is an explicit boundary, not proof of those features.
+
+### Cross-language control refinement
+
+All control timestamps (`deadline`, pairing `expires`, node `last_seen`) use integer Unix seconds on the wire; SQLite can still use REAL internally. This keeps Swift numeric decoding consistent without changing canonical hashed model parameters. Added deadline test initially failed on float; it now passes. Executor ValueError initially escaped the worker, leaving a lease outstanding; a regression now verifies terminal INVALID_TENSOR reporting. RuntimeError reports terminal EXECUTION_FAILED, MemoryError reports OUT_OF_MEMORY, and HTTP authentication/transport response errors remain distinct. Combined protocol/governance/state/security/service/worker suite: 104 passed locally after these refinements.

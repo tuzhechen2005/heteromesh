@@ -49,3 +49,10 @@ class WorkerTests(unittest.TestCase):
             return {'hidden':encode_tensor('hidden','float32',[1],inputs['hidden'].payload)}
         cap={'protocol_version':1,'platform':'linux','runtime':'python','backend':'cpu','supported_ops':['tiny'],'wire_dtypes':['float32'],'compute_dtypes':['float32'],'memory':{'unified':False,'host_budget_bytes':10485760,'accelerator_budget_bytes':None}}
         self.assertTrue(Worker(client,cap,{'slow':execute},heartbeat_interval=.01).run_once())
+
+    def test_executor_value_error_reports_terminal_failure(self):
+        job=self.submit('invalid')
+        def execute(task,inputs): raise ValueError('Invalid model inputs')
+        worker=Worker(self.client(self.node['token']),{}, {'invalid':execute})
+        self.assertFalse(worker.run_once())
+        self.assertEqual(self.admin.request('GET','/v1/jobs/'+job['job_id'])['state'],'failed')

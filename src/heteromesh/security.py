@@ -44,7 +44,7 @@ class SecurityStore:
         CREATE TABLE IF NOT EXISTS nodes(id TEXT PRIMARY KEY,token_hash TEXT UNIQUE NOT NULL,capabilities TEXT NOT NULL,last_seen REAL NOT NULL,revoked INTEGER NOT NULL DEFAULT 0);''')
     def close(self): self.db.close()
     def create_pairing(self):
-        token=secrets.token_hex(32); expires=self.clock()+300
+        token=secrets.token_hex(32); expires=int(self.clock()+300)
         with self.lock:
             self.db.execute('INSERT INTO pairing VALUES(?,?)',(_hash(token),expires))
         return {'token':token,'expires':expires}
@@ -75,4 +75,4 @@ class SecurityStore:
             if not changed: raise SecurityError('UNAUTHORIZED')
     def nodes(self):
         with self.lock:
-            return [{'node_id':r['id'],'capabilities':json.loads(r['capabilities']),'last_seen':r['last_seen'],'revoked':bool(r['revoked'])} for r in self.db.execute('SELECT * FROM nodes')]
+            return [{'node_id':r['id'],'capabilities':json.loads(r['capabilities']),'last_seen':int(r['last_seen']),'revoked':bool(r['revoked'])} for r in self.db.execute('SELECT * FROM nodes')]

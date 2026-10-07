@@ -38,8 +38,11 @@ class Worker:
                 self.client.put_artifact(digest,raw,task=task,output_name=name); digests[name]=digest
             self.client.request('POST','/v1/work/result',dict(task,outputs=digests))
             return True
-        except (ProtocolError,MemoryError) as exc:
-            self.client.request('POST','/v1/work/error',dict(task,code='OUT_OF_MEMORY' if isinstance(exc,MemoryError) else 'INVALID_TENSOR'))
+        except RemoteError:
+            raise
+        except (ValueError,MemoryError,RuntimeError) as exc:
+            code='OUT_OF_MEMORY' if isinstance(exc,MemoryError) else ('EXECUTION_FAILED' if isinstance(exc,RuntimeError) else 'INVALID_TENSOR')
+            self.client.request('POST','/v1/work/error',dict(task,code=code))
             return False
         finally:
             stop.set(); heartbeat.join(timeout=self.client.timeout+1)

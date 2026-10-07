@@ -132,3 +132,8 @@ class StateTests(unittest.TestCase):
         self.now += 2000
         with self.assertRaises(StateError): self.store.report_error('pc',task,'OUT_OF_MEMORY')
         self.assertNotEqual(self.store.get_job(job)['state'],'failed')
+
+    def test_wire_deadline_is_integer_seconds(self):
+        self.now=1000.25
+        self.submit()
+        self.assertIs(type(self.store.lease('pc')['deadline']),int)
