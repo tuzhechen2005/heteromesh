@@ -1,0 +1,41 @@
+name: Independent agent review
+on:
+  pull_request_target:
+    types: [opened, synchronize, reopened, edited]
+  issue_comment:
+    types: [created, edited, deleted]
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: PR number to recheck
+        required: true
+permissions:
+  contents: read
+  pull-requests: read
+  issues: read
+  statuses: write
+concurrency:
+  group: review-${{ github.event.pull_request.number || github.event.issue.number || inputs.pr_number }}
+  cancel-in-progress: false
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Inspect metadata using trusted default-branch code
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ inputs.pr_number }}
+        shell: bash
+        run: |
+          if [ -n "$PR_NUMBER" ]; then
+            python tools/review_gate.py --pr "$PR_NUMBER"
+          else
+            python tools/review_gate.py
+          fi
