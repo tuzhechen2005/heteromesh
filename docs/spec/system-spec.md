@@ -72,7 +72,7 @@ manifest/profile/plan使用protocol-v1 D-07定义的受限canonical JSON摘要�
 
 片段以 `(job_id, recovery_epoch, step_index, fragment_id, input_digest)` 为逻辑执行键；`attempt_id` 标识一次尝试。结果提交使用比较交换，每 epoch 内至多提交一次片段结果，不承诺物理计算恰好一次。步级 checkpoint 是持久恢复边界；重启丢失步内临时张量时递增 recovery_epoch，从最近完整步重算，旧 epoch 的未提交/冲突结果拒绝；已持久化成功的同一结果重发可以返回既有提交收据，但不重新执行或提交。最终产物以 job_id 为唯一提交键，与取消状态在同一事务中校验。重发同一提交请求返回既有作业；同键不同请求摘要返回冲突。
 
-错误码至少包括 `UNAUTHORIZED`、`PROTOCOL_MISMATCH`、`UNSUPPORTED_OPERATOR`、`MANIFEST_MISMATCH`、`INVALID_TENSOR`、`OUT_OF_MEMORY`、`DISK_FULL`、`NODE_UNAVAILABLE`、`DEADLINE_EXCEEDED`、`CHECKPOINT_INVALID`、`CANCELLED`。只有声明 transient 的连接错误或节点暂时失联可默认重试；默认 3 次、指数退避带抖动。deadline 按实测耗时设置并允许用户调整，不能用短固定超时淘汰慢速手机。heartbeat 与长计算独立。
+错误码至少包括 `UNAUTHORIZED`、`PROTOCOL_MISMATCH`、`UNSUPPORTED_OPERATOR`、`MANIFEST_MISMATCH`、`INVALID_TENSOR`、`OUT_OF_MEMORY`、`DISK_FULL`、`NODE_UNAVAILABLE`、`DEADLINE_EXCEEDED`、`CHECKPOINT_INVALID`、`EXECUTION_FAILED`、`CANCELLED`。只有声明 transient 的连接错误或节点暂时失联可默认重试；默认 3 次、指数退避带抖动。deadline 按实测耗时设置并允许用户调整，不能用短固定超时淘汰慢速手机。heartbeat 与长计算独立。
 
 去噪步骤边界 checkpoint 至少包含 latent/其他循环状态、完整调度器状态、各随机数生成器状态、步索引、条件输入哈希/缓存引用、manifest/plan/profile 摘要、模型实现与运行时版本。先写临时目录并同步，再原子发布索引；空间不足保留上一完整版本。若后端只能提供数值容差恢复而非逐位恢复，必须明确声明并按容差验证。不假定仅保存 seed 即可恢复。
 

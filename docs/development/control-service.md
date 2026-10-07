@@ -43,3 +43,43 @@ Coverage: submission idempotency and conflicts, sequential cross-node dependenci
 ## Independent review regressions
 
 PR #1 non-author review found: pause at an already completed step unnecessarily began the next step; fragment/step identity and bool-as-integer epoch were not rejected; expired error reports could terminate a job. Four regression tests first failed (6 failed assertions), then passed after binding all identity fields with strict types, rejecting expired errors and recognizing existing step boundaries. GREEN: 16 tests. Added three-platform Python 3.11 `state-ledger` workflow so governance checks cannot substitute for implementation tests.
+
+## HTTPS / worker increment
+
+`Coordinator(root, host='127.0.0.1', port=0, validate_job=...)` creates a local identity and SQLite stores. The job validator is mandatory for admission (without one submission is unsupported): it must verify trusted installed profiles, capabilities, resource plans and all device preparation. Node capabilities use the shared schema by default. This increment exposes the routes in protocol-v1, with explicit full-step pause and no remote computation fallback.
+
+`PinnedClient(host, port, fingerprint, token=...)` verifies the exact DER SHA256 after the TLS handshake and before sending any request/credential. Self-signed certs rely on the out-of-band pin, not a disabled-authentication connection. Each request has its own TLS connection, so concurrent heartbeat does not share a socket. Local identity creation requires `openssl` in PATH. POSIX key/token files use mode 0600; Windows deployments must use an owner-restricted runtime directory/ACL.
+
+Artifact requests from workers carry `X-Job-Id`, `X-Recovery-Epoch`, `X-Attempt-Id`; uploads also carry `X-Output-Name`. The node identity is from its bearer token, never these untrusted headers. Active attempts grant only their input digests and declared output names; completed attempts grant their committed output digests. Other jobs/epochs/nodes are denied. Uploads stream to quarantine using the shared codec, verify payload/full-file digest and declared output schema, fsync, then publish atomically. Result commit revalidates artifacts. Per-node transfer semaphores allow at most two bounded 4MiB streams. Input/output tensors materialized by the worker remain separate active-memory allocations and must be included by the admission callback.
+
+`Worker(client, capabilities, registry).run_once()` leases work, loads actual tensor inputs, checks finite values, selects a locally installed function from the registry and calls it with `(task, input_frames)` returning named encoded tensor bytes, verifies shape/dtype/name, uploads and commits outputs. Unknown operations produce UNSUPPORTED_OPERATOR. `run(stop_event)` polls with a stoppable wait; heartbeat runs separately while computation proceeds. This is trusted installed code only, never a network-supplied function.
+
+### Additional TDD evidence
+
+- Security RED: missing module; GREEN five pairing, expiry, secret-hashing, identity and heartbeat tests.
+- DER pin client RED: missing client; GREEN real TLS server shows wrong pin sends no HTTP/Authorization and correct pin succeeds.
+- Service RED: missing coordinator; GREEN pairing/revocation, actual tensor transfer/job completion and hash quarantine tests.
+- Capability negative test initially accepted malformed reports; strict schema admission made it fail safely.
+- Committed output access test initially received 403; scoped completed-result grant implemented, now passes.
+- Worker RED: missing worker; GREEN actual callback receives transmitted tensor and unknown operation fails. Added real TLS heartbeat-during-callback test.
+- Combined local unittest suite after reviewed state fixes: 29 passed. Tests are loopback software evidence, not multi-physical-device or H3 evidence.
+
+Remaining product work includes full installation lifecycle, automatic placement, H3 adapter/scheduler checkpoints, device liveness policy, durable resume artifact audit and resource-policy UI. The admission callback is an explicit boundary, not proof of those features.
+
+### Cross-language control refinement
+
+All control timestamps (`deadline`, pairing `expires`, node `last_seen`) use integer Unix seconds on the wire; SQLite can still use REAL internally. This keeps Swift numeric decoding consistent without changing canonical hashed model parameters. Added deadline test initially failed on float; it now passes. Executor ValueError initially escaped the worker, leaving a lease outstanding; a regression now verifies terminal INVALID_TENSOR reporting. RuntimeError reports terminal EXECUTION_FAILED, MemoryError reports OUT_OF_MEMORY, and HTTP authentication/transport response errors remain distinct. Combined protocol/governance/state/security/service/worker suite: 104 passed locally after these refinements.
+
+### Independent security review regression
+
+Root reproduced a global-artifact laundering flaw: a worker could claim another job's known digest as its result, then read it as an own committed output. Added `test_result_cannot_launder_unrelated_global_artifact`: RED reproduced the unauthorized commit. Upload completion now creates a durable output grant bound to attempt/node/job/epoch/output-name/digest only after validated bytes are published; result commit requires that grant before inspecting global cache content. Guessing a cached hash alone grants nothing. GREEN: service/worker 9 tests, including the regression and legitimate uploaded results. No global-cache existence shortcut is used for authorization.
+
+Admin job status includes `outputs` only after success, taken from the current recovery epoch's final committed attempt. This lets CLI retrieve the final tensor without exposing arbitrary private job requests. Regression first failed on missing outputs, then passed including checkpoint rollback/current-epoch selection. Combined suite: 106 passed locally.
+
+Root additionally found that malicious workers could upload/commit correctly hashed nonfinite outputs. The codec remains bit-preserving, but model output publication and commit now scan floats in bounded 64KiB blocks, using each dtype's exponent mask (including BF16) and no full tensor allocation. The TLS NaN-output test failed before the fix and now rejects it; dtype-specific largest-finite and infinity cases verify format distinctions. Successful job status exposes only current-epoch final committed outputs.
+
+### Storage durability and local privacy
+
+On POSIX the coordinator enforces mode 0700 on its runtime root. Artifact publication now orders file flush/fsync, rename, parent-directory fsync, durable upload grant, then HTTP acknowledgment; directory-sync failure returns STORAGE_UNAVAILABLE and grants nothing. Two review regressions first failed (upload incorrectly acknowledged injected sync failure; permissive existing root stayed 0755), then passed. POSIX fsync guarantees still depend on the filesystem/storage implementation.
+
+Windows currently has **process-crash-only** artifact durability: file contents are flushed, but Python's POSIX parent-directory fsync path is unavailable, so power-loss persistence of the rename is not promised. `/v1/health` reports `storage_durability: process-crash-only` on Windows and `posix-fsync` on POSIX. Owner-restricted Windows directory ACL setup and stronger power-loss guarantees remain explicit deployment limitations; POSIX permission assertions do not masquerade as Windows ACL tests.

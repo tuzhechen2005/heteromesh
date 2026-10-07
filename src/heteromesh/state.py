@@ -112,7 +112,12 @@ class StateStore:
     def get_job(self, job_id):
         with self.lock:
             row = self._job(job_id)
-            return {'job_id': row['id'], 'state': row['state'], 'recovery_epoch': row['epoch'], 'cursor': row['cursor'], 'task_count': len(json.loads(row['request'])['tasks'])}
+            result = {'job_id': row['id'], 'state': row['state'], 'recovery_epoch': row['epoch'], 'cursor': row['cursor'], 'task_count': len(json.loads(row['request'])['tasks'])}
+            if row['state'] == 'succeeded':
+                final = self.db.execute("SELECT result FROM attempts WHERE job=? AND epoch=? AND position=? AND state='committed'", (job_id,row['epoch'],row['cursor']-1)).fetchone()
+                if final is None: raise StateError('CHECKPOINT_INVALID')
+                result['outputs'] = json.loads(final['result'])['outputs']
+            return result
 
     def submit_job(self, idempotency_key, request):
         if not isinstance(idempotency_key, str) or not 1 <= len(idempotency_key) <= 256:
@@ -157,7 +162,7 @@ class StateStore:
                     self.db.execute("UPDATE jobs SET state='failed' WHERE id=?", (job['id'],))
                     continue
                 inputs = self._resolve_inputs(job, task)
-                envelope = dict(task, job_id=job['id'], recovery_epoch=job['epoch'], attempt_id=secrets.token_hex(16), manifest_digest=json.loads(job['request'])['manifest_digest'], input_digest=_digest(inputs), inputs=inputs, deadline=self.clock()+duration)
+                envelope = dict(task, job_id=job['id'], recovery_epoch=job['epoch'], attempt_id=secrets.token_hex(16), manifest_digest=json.loads(job['request'])['manifest_digest'], input_digest=_digest(inputs), inputs=inputs, deadline=int(self.clock()+duration))
                 self.db.execute("INSERT INTO attempts VALUES(?,?,?,?,?,?,?,'leased',NULL)", (envelope['attempt_id'], job['id'], job['epoch'], job['cursor'], node_id, envelope['deadline'], _json(envelope)))
                 self.db.execute("UPDATE jobs SET state=? WHERE id=?", ('pausing' if job['pause_requested'] else 'running', job['id']))
                 return envelope
@@ -229,7 +234,7 @@ class StateStore:
             return self.get_job(job_id)
 
     def report_error(self, node_id, envelope, code):
-        allowed = {'OUT_OF_MEMORY', 'UNSUPPORTED_OPERATOR', 'MANIFEST_MISMATCH', 'INVALID_TENSOR', 'NODE_UNAVAILABLE', 'DEADLINE_EXCEEDED', 'DISK_FULL'}
+        allowed = {'OUT_OF_MEMORY', 'UNSUPPORTED_OPERATOR', 'MANIFEST_MISMATCH', 'INVALID_TENSOR', 'NODE_UNAVAILABLE', 'DEADLINE_EXCEEDED', 'DISK_FULL', 'EXECUTION_FAILED'}
         if code not in allowed: raise StateError('INVALID_ERROR')
         with self._tx():
             attempt = self.db.execute('SELECT * FROM attempts WHERE id=?', (envelope.get('attempt_id'),)).fetchone()
