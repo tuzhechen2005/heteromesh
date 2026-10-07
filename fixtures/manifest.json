@@ -1,0 +1,56 @@
+{
+  "protocol_version": 1,
+  "model_id": "self-owned-test",
+  "revision": "fixture-v1",
+  "source": "local:self-owned",
+  "license": "MIT",
+  "profile": "tiny-float32",
+  "fragments": [
+    {
+      "id": "block0",
+      "backend": "cpu",
+      "compute_dtype": "float32",
+      "required_ops": [
+        "linear"
+      ],
+      "inputs": [
+        {
+          "name": "x",
+          "dtype": "float32",
+          "shape": [
+            1,
+            2
+          ]
+        }
+      ],
+      "outputs": [
+        {
+          "name": "y",
+          "dtype": "float32",
+          "shape": [
+            1,
+            2
+          ]
+        }
+      ],
+      "weights": [
+        {
+          "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "bytes": 100
+        }
+      ],
+      "memory": {
+        "host": {
+          "resident_weights_bytes": 100,
+          "peak_activations_bytes": 20,
+          "workspace_bytes": 10,
+          "transfer_buffers_bytes": 8,
+          "runtime_overhead_bytes": 5,
+          "safety_margin_bytes": 7,
+          "loading_peak_bytes": 170
+        },
+        "accelerator": null
+      }
+    }
+  ]
+}
