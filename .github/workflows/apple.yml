@@ -1,0 +1,20 @@
+name: Apple
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  apple-protocol:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Swift package tests
+        run: swift test --package-path apple
+      - name: Shared Python and Swift byte fixtures
+        run: swift run --package-path apple protocol-checks fixtures
+      - name: Compile library for iOS Simulator SDK
+        shell: bash
+        run: |
+          mkdir -p apple/build
+          xcrun --sdk iphonesimulator swiftc -swift-version 6 -emit-library -module-name HeteroMesh -target arm64-apple-ios16.0-simulator -sdk "$(xcrun --sdk iphonesimulator --show-sdk-path)" apple/Sources/HeteroMesh/*.swift -o apple/build/libHeteroMesh.dylib

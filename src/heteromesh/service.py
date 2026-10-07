@@ -7,6 +7,8 @@ import os
 import re
 import ssl
 import tempfile
+import struct
+import numpy as np
 import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -166,6 +168,19 @@ class Coordinator:
         if identity!='admin': raise RequestError(403,'FORBIDDEN')
     def _node(self,identity):
         if identity=='admin': raise RequestError(403,'FORBIDDEN')
+    @staticmethod
+    def _finite_artifact(path,header):
+        dtype=header['dtype']
+        if dtype not in ('float16','bfloat16','float32'): return
+        mask=0x7f800000 if dtype=='float32' else (0x7c00 if dtype=='float16' else 0x7f80)
+        word='<u4' if dtype=='float32' else '<u2'
+        with Path(path).open('rb') as source:
+            header_bytes=struct.unpack('>I',source.read(4))[0]
+            source.seek(4+header_bytes)
+            while chunk:=source.read(65536):
+                bits=np.frombuffer(chunk,dtype=word)
+                if np.any((bits & mask)==mask): raise RequestError(400,'NONFINITE_OUTPUT')
+
     def _verify_artifact(self,digest,spec,name):
         if not isinstance(digest,str) or not re.fullmatch('[0-9a-f]{64}',digest): raise RequestError(400,'INVALID_ARTIFACT')
         path=self.artifacts/digest
@@ -176,6 +191,7 @@ class Coordinator:
             meta=copy_tensor(source,NullSink())
         if meta['artifact_sha256']!=digest: raise RequestError(400,'INVALID_ARTIFACT')
         if meta['header']['name']!=name or any(meta['header'][key]!=spec[key] for key in ('dtype','shape')): raise RequestError(400,'OUTPUT_MISMATCH')
+        self._finite_artifact(path,meta['header'])
     def _artifact(self,h,node,digest,length):
         task=None
         if node!='admin':
@@ -202,7 +218,9 @@ class Coordinator:
                         name=h.headers['X-Output-Name']; spec=task['outputs'][name]
                         if meta['header']['name']!=name or any(meta['header'][key]!=spec[key] for key in ('dtype','shape')): raise RequestError(400,'OUTPUT_MISMATCH')
                     sink.flush(); os.fsync(sink.fileno())
-                if task is not None: self._attempt(h,node)
+                if task is not None:
+                    self._finite_artifact(tmp,meta['header'])
+                    self._attempt(h,node)
                 os.replace(tmp,self.artifacts/digest)
                 if task is not None:
                     with self.state._tx():
