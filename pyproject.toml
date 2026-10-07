@@ -16,5 +16,9 @@ test = ["pytest>=8,<9"]
 pythonpath = ["src"]
 testpaths = ["tests"]
 
-[tool.setuptools.packages.find]
-where = ["src"]
+[tool.setuptools]
+packages = ["heteromesh", "heteromesh.schemas"]
+package-dir = {heteromesh = "src/heteromesh", "heteromesh.schemas" = "schemas"}
+
+[tool.setuptools.package-data]
+"heteromesh.schemas" = ["*.json"]
