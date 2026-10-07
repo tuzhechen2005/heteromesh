@@ -9,3 +9,5 @@
 行为测试覆盖：缺批准、自审、旧SHA、非维护者评论、不同reviewer阻塞优先、撤销、编辑无效、删除的持久失效、缺scope、伪bool版本、未知agent和多个作者。网络adapter的实际运行证据由本PR提交状态及后续review工作流运行记录提供。
 
 代码审查绑定PR具体SHA，文档审查不能替代门禁代码的非作者审查。初始PR使用同一验证器本机发布agent-review status，因可信workflow尚未进入main；此启动例外不能延伸到后续PR。
+
+非作者代码审查后追加RED/GREEN：先加事件权限与编辑身份回归测试，缺invalidation_agents导入失败；实现仅维护者记录可失效且优先读取编辑前reviewer，15个测试通过。修复普通外部评论编辑/删除可阻塞合并的漏洞。

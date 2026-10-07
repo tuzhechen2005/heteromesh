@@ -7,7 +7,6 @@ import re
 import subprocess
 import urllib.error
 import urllib.request
-from datetime import datetime, timezone
 
 MARKER = "<!-- heteromesh-agent-review-v1 -->"
 AGENTS = {"/root", "/root/research", "/root/product", "/root/spec_qa"}
@@ -72,6 +71,24 @@ def evaluate(pr_body, sha, comments, permissions, invalidations=()):
     return True, "current SHA independently reviewed by another agent"
 
 
+def invalidation_agents(event, permissions):
+    """Only trusted review records can invalidate; preserve identity before edits."""
+    item = event.get("comment", {})
+    if event.get("action") not in {"edited", "deleted"}:
+        return []
+    if permissions.get(item.get("user", {}).get("login")) not in {"write", "maintain", "admin"}:
+        return []
+    original = event.get("changes", {}).get("body", {}).get("from", item.get("body", ""))
+    current = item.get("body", "")
+    body = original if original.startswith(MARKER) else current
+    if not body.startswith(MARKER):
+        return []
+    try:
+        return [parse_record(body)["reviewer_agent"]]
+    except (ValueError, KeyError, TypeError):
+        return ["*"]
+
+
 class GitHub:
     def __init__(self, repo, token):
         self.repo, self.token = repo, token
@@ -128,16 +145,15 @@ def main():
         if not args.check_only:
             github.status(sha, "pending", "checking independent review evidence")
         changed = event.get("comment", {})
-        if event.get("action") in {"edited", "deleted"} and (
-            changed.get("body", "").startswith(MARKER)
-            or event.get("changes", {}).get("body", {}).get("from", "").startswith(MARKER)
-        ):
-            try:
-                agent = parse_record(changed["body"])["reviewer_agent"]
-            except (ValueError, KeyError, TypeError):
-                agent = "*"
+        changed_login = changed.get("user", {}).get("login")
+        event_permissions = {}
+        if changed_login and event.get("action") in {"edited", "deleted"}:
+            event_permissions[changed_login] = github.api(f"/collaborators/{changed_login}/permission")["permission"]
+        invalidated = invalidation_agents(event, event_permissions)
+        if invalidated:
             if not args.check_only:
-                github.status(sha, "failure", "invalidation:" + agent)
+                for agent in invalidated:
+                    github.status(sha, "failure", "invalidation:" + agent)
             print("Review edited/deleted; append a fresh non-author review.")
             return 1
         comments = github.pages(f"/issues/{number}/comments")

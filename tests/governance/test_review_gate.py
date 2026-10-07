@@ -1,7 +1,7 @@
 import json
 import unittest
 
-from tools.review_gate import evaluate, parse_record
+from tools.review_gate import evaluate, parse_record, invalidation_agents
 
 SHA = "a" * 40
 BODY = "Agent-Author: /root\n"
@@ -72,6 +72,20 @@ class ReviewTests(unittest.TestCase):
         record["reviewed_paths"] = []
         review["body"] = MARKER + "\n```json\n" + json.dumps(record) + "\n```"
         self.assertFalse(self.check([review])[0])
+
+    def test_untrusted_comment_edits_cannot_invalidate(self):
+        event = {"action": "edited", "comment": comment()}
+        self.assertEqual(invalidation_agents(event, {"maintainer": "read"}), [])
+
+    def test_edit_preserves_original_reviewer_identity(self):
+        original = comment("/root/research")
+        event = {"action": "edited", "comment": comment("/root/product"),
+                 "changes": {"body": {"from": original["body"]}}}
+        self.assertEqual(invalidation_agents(event, {"maintainer": "admin"}), ["/root/research"])
+
+    def test_deletion_invalidates_trusted_reviewer(self):
+        event = {"action": "deleted", "comment": comment()}
+        self.assertEqual(invalidation_agents(event, {"maintainer": "admin"}), ["/root/research"])
 
 
 if __name__ == "__main__":
