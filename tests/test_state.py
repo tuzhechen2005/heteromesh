@@ -106,3 +106,29 @@ class StateTests(unittest.TestCase):
         self.submit()
         task = self.store.lease('pc')
         with self.assertRaises(StateError): self.store.report_error('mac', task, 'OUT_OF_MEMORY')
+
+    def test_pause_at_existing_step_boundary_does_not_advance(self):
+        job = self.submit()
+        self.finish('pc', self.store.lease('pc'))
+        self.finish('mac', self.store.lease('mac'))
+        self.store.pause(job)
+        self.assertEqual(self.store.get_job(job)['state'], 'paused')
+        self.assertIsNone(self.store.lease('pc'))
+    def test_result_rejects_identity_changes_and_boolean_epoch(self):
+        self.submit()
+        task = self.store.lease('pc')
+        for change in ({'fragment_id':'fake'}, {'step_index':9}, {'recovery_epoch':False}):
+            with self.subTest(change=change):
+                with self.assertRaises(StateError): self.finish('pc',dict(task,**change))
+    def test_error_rejects_identity_changes(self):
+        self.submit()
+        task = self.store.lease('pc')
+        for change in ({'fragment_id':'fake'}, {'step_index':9}, {'recovery_epoch':False}):
+            with self.subTest(change=change):
+                with self.assertRaises(StateError): self.store.report_error('pc',dict(task,**change),'OUT_OF_MEMORY')
+    def test_expired_error_cannot_fail_job(self):
+        job = self.submit()
+        task = self.store.lease('pc')
+        self.now += 2000
+        with self.assertRaises(StateError): self.store.report_error('pc',task,'OUT_OF_MEMORY')
+        self.assertNotEqual(self.store.get_job(job)['state'],'failed')

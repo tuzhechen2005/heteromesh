@@ -39,3 +39,7 @@ The service layer must authenticate the node, validate installed model/operation
 - GREEN: 12 tests passed after those methods were implemented (2026-10-06).
 
 Coverage: submission idempotency and conflicts, sequential cross-node dependencies, node spoof rejection, committed retry after deadline, cancel/result behavior, full-step pause and restart, restart-invalidated attempts, checkpoint epochs, bounded expired attempts, illegal forward references, terminal unsupported-operation failure, revoked-node waiting. Further TLS/artifact/worker tests belong to subsequent increments.
+
+## Independent review regressions
+
+PR #1 non-author review found: pause at an already completed step unnecessarily began the next step; fragment/step identity and bool-as-integer epoch were not rejected; expired error reports could terminate a job. Four regression tests first failed (6 failed assertions), then passed after binding all identity fields with strict types, rejecting expired errors and recognizing existing step boundaries. GREEN: 16 tests. Added three-platform Python 3.11 `state-ledger` workflow so governance checks cannot substitute for implementation tests.

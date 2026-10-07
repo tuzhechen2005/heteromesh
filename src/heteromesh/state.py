@@ -168,8 +168,9 @@ class StateStore:
             attempt = self.db.execute('SELECT * FROM attempts WHERE id=?', (envelope.get('attempt_id'),)).fetchone()
             if attempt is None or attempt['node'] != node_id: raise StateError('INVALID_LEASE')
             original = json.loads(attempt['task'])
-            for field in ('job_id', 'recovery_epoch', 'task_id', 'manifest_digest', 'input_digest'):
-                if envelope.get(field) != original[field]: raise StateError('INVALID_LEASE')
+            for field in ('job_id', 'recovery_epoch', 'task_id', 'fragment_id', 'step_index', 'manifest_digest', 'input_digest'):
+                if type(envelope.get(field)) is not type(original[field]) or envelope.get(field) != original[field]:
+                    raise StateError('INVALID_LEASE')
             if not isinstance(outputs, dict) or set(outputs) != set(original['outputs']) or not all(_is_digest(d) for d in outputs.values()):
                 raise StateError('INVALID_OUTPUT')
             if attempt['state'] == 'committed':
@@ -202,7 +203,10 @@ class StateStore:
         with self._tx():
             job = self._job(job_id)
             if job['state'] in ('succeeded', 'cancelled', 'failed'): raise StateError('CONFLICT')
-            state = 'paused' if job['cursor'] == 0 and job['state'] == 'queued' else 'pausing'
+            tasks = json.loads(job['request'])['tasks']
+            at_boundary = job['cursor'] == 0 or tasks[job['cursor']-1]['step_index'] != tasks[job['cursor']]['step_index']
+            active = self.db.execute("SELECT 1 FROM attempts WHERE job=? AND epoch=? AND position=? AND state='leased'", (job_id, job['epoch'], job['cursor'])).fetchone()
+            state = 'paused' if at_boundary and not active else 'pausing'
             if job['state'] == 'paused': state = 'paused'
             self.db.execute('UPDATE jobs SET pause_requested=1,state=? WHERE id=?', (state, job_id))
             return self.get_job(job_id)
@@ -229,9 +233,9 @@ class StateStore:
         if code not in allowed: raise StateError('INVALID_ERROR')
         with self._tx():
             attempt = self.db.execute('SELECT * FROM attempts WHERE id=?', (envelope.get('attempt_id'),)).fetchone()
-            if attempt is None or attempt['node'] != node_id or attempt['state'] != 'leased': raise StateError('INVALID_LEASE')
+            if attempt is None or attempt['node'] != node_id or attempt['state'] != 'leased' or attempt['deadline'] <= self.clock(): raise StateError('INVALID_LEASE')
             original = json.loads(attempt['task'])
-            if any(envelope.get(k) != original[k] for k in ('job_id', 'recovery_epoch', 'task_id', 'manifest_digest', 'input_digest')):
+            if any(type(envelope.get(k)) is not type(original[k]) or envelope.get(k) != original[k] for k in ('job_id', 'recovery_epoch', 'task_id', 'fragment_id', 'step_index', 'manifest_digest', 'input_digest')):
                 raise StateError('INVALID_LEASE')
             job = self._job(attempt['job'])
             if job['epoch'] != attempt['epoch'] or job['state'] not in ('running', 'pausing'):
