@@ -43,3 +43,25 @@ Coverage: submission idempotency and conflicts, sequential cross-node dependenci
 ## Independent review regressions
 
 PR #1 non-author review found: pause at an already completed step unnecessarily began the next step; fragment/step identity and bool-as-integer epoch were not rejected; expired error reports could terminate a job. Four regression tests first failed (6 failed assertions), then passed after binding all identity fields with strict types, rejecting expired errors and recognizing existing step boundaries. GREEN: 16 tests. Added three-platform Python 3.11 `state-ledger` workflow so governance checks cannot substitute for implementation tests.
+
+## HTTPS / worker increment
+
+`Coordinator(root, host='127.0.0.1', port=0, validate_job=...)` creates a local identity and SQLite stores. The job validator is mandatory for admission (without one submission is unsupported): it must verify trusted installed profiles, capabilities, resource plans and all device preparation. Node capabilities use the shared schema by default. This increment exposes the routes in protocol-v1, with explicit full-step pause and no remote computation fallback.
+
+`PinnedClient(host, port, fingerprint, token=...)` verifies the exact DER SHA256 after the TLS handshake and before sending any request/credential. Self-signed certs rely on the out-of-band pin, not a disabled-authentication connection. Each request has its own TLS connection, so concurrent heartbeat does not share a socket. Local identity creation requires `openssl` in PATH. POSIX key/token files use mode 0600; Windows deployments must use an owner-restricted runtime directory/ACL.
+
+Artifact requests from workers carry `X-Job-Id`, `X-Recovery-Epoch`, `X-Attempt-Id`; uploads also carry `X-Output-Name`. The node identity is from its bearer token, never these untrusted headers. Active attempts grant only their input digests and declared output names; completed attempts grant their committed output digests. Other jobs/epochs/nodes are denied. Uploads stream to quarantine using the shared codec, verify payload/full-file digest and declared output schema, fsync, then publish atomically. Result commit revalidates artifacts. Per-node transfer semaphores allow at most two bounded 4MiB streams. Input/output tensors materialized by the worker remain separate active-memory allocations and must be included by the admission callback.
+
+`Worker(client, capabilities, registry).run_once()` leases work, loads actual tensor inputs, checks finite values, calls a locally installed `registry[operation](task, input_frames)` function returning named encoded tensor bytes, verifies shape/dtype/name, uploads and commits outputs. Unknown operations produce UNSUPPORTED_OPERATOR. `run(stop_event)` polls with a stoppable wait; heartbeat runs separately while computation proceeds. This is trusted installed code only, never a network-supplied function.
+
+### Additional TDD evidence
+
+- Security RED: missing module; GREEN five pairing, expiry, secret-hashing, identity and heartbeat tests.
+- DER pin client RED: missing client; GREEN real TLS server shows wrong pin sends no HTTP/Authorization and correct pin succeeds.
+- Service RED: missing coordinator; GREEN pairing/revocation, actual tensor transfer/job completion and hash quarantine tests.
+- Capability negative test initially accepted malformed reports; strict schema admission made it fail safely.
+- Committed output access test initially received 403; scoped completed-result grant implemented, now passes.
+- Worker RED: missing worker; GREEN actual callback receives transmitted tensor and unknown operation fails. Added real TLS heartbeat-during-callback test.
+- Combined local unittest suite after reviewed state fixes: 29 passed. Tests are loopback software evidence, not multi-physical-device or H3 evidence.
+
+Remaining product work includes full installation lifecycle, automatic placement, H3 adapter/scheduler checkpoints, device liveness policy, durable resume artifact audit and resource-policy UI. The admission callback is an explicit boundary, not proof of those features.
