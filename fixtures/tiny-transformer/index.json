@@ -1,0 +1,76 @@
+{
+  "operation": "tiny_transformer_block_v1",
+  "parameters": {
+    "epsilon": "0.00001"
+  },
+  "inputs": {
+    "hidden": {
+      "file": "hidden.bin",
+      "sha256": "a0eb3599821d711563ac1c7d50bac3ebc00e3d2273c9cdac661c5a69baa2a50a"
+    },
+    "condition": {
+      "file": "condition.bin",
+      "sha256": "71239ec576ced602e58f0f7dba4b6493ecc39f6c309d6fa617ee09f8b8af87ae"
+    },
+    "wq": {
+      "file": "wq.bin",
+      "sha256": "6a0e36cb7ac39a1946ab4a0384bb73c82d8459babe90002128408540e03d3143"
+    },
+    "wk": {
+      "file": "wk.bin",
+      "sha256": "7d3e83b7084fa85bc1b61cd701bc33dd491f287781137a349f1ca5d56941ba5f"
+    },
+    "wv": {
+      "file": "wv.bin",
+      "sha256": "820832155a915aff493ddcb48b0a1d7f452fdc1e1b6d69e187949fccaa5d22f5"
+    },
+    "wo": {
+      "file": "wo.bin",
+      "sha256": "83a08a9bff2db9ef47171c3f20770e4d72ca32a4351ecdbee88e1c8fa84f1c76"
+    },
+    "w1": {
+      "file": "w1.bin",
+      "sha256": "83bf1c97a8b97abc37bd6df484ef570f28113065814d81c0a780450f772173ad"
+    },
+    "b1": {
+      "file": "b1.bin",
+      "sha256": "fd39d63b468e8c306587c28a2dd4e5416ab2cfa5266e08b70e7971ae55794da6"
+    },
+    "w2": {
+      "file": "w2.bin",
+      "sha256": "fb01d5919a59d85b48991f2075b046f94dff5b4c7d3bcbc2550c0033f632d34f"
+    },
+    "b2": {
+      "file": "b2.bin",
+      "sha256": "3f013bf360dca529635bc52442a679f8e8fec432412a228c8fa125d81fea36bd"
+    },
+    "ln1_weight": {
+      "file": "ln1_weight.bin",
+      "sha256": "1d6f4c6fd24a93cadf60d862424c93e9ffb0c1666abd746376648a0a770f5369"
+    },
+    "ln1_bias": {
+      "file": "ln1_bias.bin",
+      "sha256": "fa3f31e1991a2847b136039e19931ceb6922dca2ce2e828cef153d50fde7734c"
+    },
+    "ln2_weight": {
+      "file": "ln2_weight.bin",
+      "sha256": "5be89e8f89e6b8484ea1f17e0da440ae22afcdf2454df987b3acb5872dee438e"
+    },
+    "ln2_bias": {
+      "file": "ln2_bias.bin",
+      "sha256": "dc086efe6faf7bde241bdb664b7bb94d4432fdd9a53e1dbb60c3c88df97e88a7"
+    }
+  },
+  "outputs": {
+    "0": {
+      "file": "output-0.bin",
+      "sha256": "3969725381b21dd48448e98e01892438fe9c9106431eac90abc261db21b8fe7f"
+    },
+    "1": {
+      "file": "output-1.bin",
+      "sha256": "6ab4cb52fa180026ebff6af668999ea9abae696c4bb2837fe01776975b5daa90"
+    }
+  },
+  "atol": "0.00001",
+  "rtol": "0.0001"
+}
