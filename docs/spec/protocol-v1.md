@@ -37,6 +37,8 @@ Python 3.11+ 桌面控制器/worker，NumPy CPU 参考，PyTorch CUDA/MPS 可选
 
 所有 task/作业相关消息以 `job_id, recovery_epoch, task_id, step_index, fragment_id, attempt_id, manifest_digest, input_digest` 绑定身份；task 附明确 `inputs`（张量名→制品 digest）、运行参数、输出张量规格、deadline。worker 不得自行改变 fragment、模型或输入。
 
+控制时间字段 `deadline`、配对 `expires`、节点 `last_seen` 均为整数 Unix 秒；数据库内部可保留更高精度。控制 DTO 不依赖浮点时间解码。工作节点对模型输入/契约错误报告 `INVALID_TENSOR`，运行后端不可恢复错误报告 `EXECUTION_FAILED`，内存不足报告 `OUT_OF_MEMORY`；这些错误默认终止当前作业，不自动重试。
+
 ## D-03 tensor-v1 二进制
 
 线上帧：4 bytes 大端无符号 header 长度 + UTF-8 JSON header + payload。header 最大 65536 bytes；payload 默认上限 256 MiB，实际限值取节点、会话和计划的最小值。禁止负数、bool 伪整数、非有限数字、重复 JSON keys、重复张量名以及压缩负载。
