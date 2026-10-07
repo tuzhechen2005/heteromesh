@@ -26,4 +26,4 @@ jobs:
       - name: Verify real upstream block import and identity
         run: python -c 'from heteromesh.h3_runtime import verify_upstream; print(verify_upstream())'
       - name: Execute actual upstream operators with self-owned synthetic weights
-        run: python -m pytest tests/test_h3_runtime.py tests/test_h3_metadata.py -q -rs
+        run: python -m pytest tests/test_h3_runtime.py tests/test_h3_metadata.py tests/test_h3_graph.py -q -rs
