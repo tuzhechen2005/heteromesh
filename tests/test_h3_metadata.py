@@ -48,7 +48,7 @@ def test_unverified_metadata_cannot_claim_official():
     c,i=synthetic()
     with pytest.raises(H3MetadataError):inspect_official(json.dumps(c).encode(),json.dumps(i).encode(),0,1)
 
-@pytest.mark.parametrize('raw',[b'{"a":1,"a":2}',b'{}'+b' '*(1024*1024),b'{"a":NaN}',b'\xff'])
+@pytest.mark.parametrize('raw',[b'{"a":1,"a":2}',b'{}'+b' '*(1024*1024),b'{"a":NaN}',b'\xff'],ids=['duplicate-key','oversize-metadata','nonfinite-number','invalid-utf8'])
 def test_official_parser_rejects_malformed_metadata(raw):
     with pytest.raises(H3MetadataError):inspect_official(raw,b'{}',0,1)
 
