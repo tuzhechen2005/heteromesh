@@ -5,3 +5,5 @@ import HeteroMeshChecks
 
 @Test func transformerReference() throws { try runTransformerChecks() }
 @Test func transportPinPolicy() throws { try runTransportChecks() }
+
+@Test func workerContractsAndLifecycle() throws { try runWorkerContractChecks() }

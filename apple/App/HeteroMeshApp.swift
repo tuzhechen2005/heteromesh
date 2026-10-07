@@ -56,6 +56,7 @@ import HeteroMesh
                     }
                 }.navigationTitle("HeteroMesh 节点")
             }
-        }.onChange(of:scenePhase) { phase in if phase != .active { model.stop() } }
+        }.onChange(of:scenePhase) { phase in let nodePhase: NodePhase = phase == .background ? .background : (phase == .active ? .active : .inactive)
+            if ParticipationPolicy.shouldStop(nodePhase) { model.stop() } }
     }
 }

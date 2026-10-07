@@ -98,9 +98,8 @@ public actor AppleWorker {
         }
         let output = try await Task.detached(priority:.userInitiated) { try TinyTransformer.execute(inputs:inputs,epsilon:epsilon) }.value
         try Task.checkCancellation()
-        guard case .object(let outputs) = task["outputs"], outputs.count == 1, outputs[0].key == "hidden",
-              outputs[0].value["dtype"]?.string == "float32",
-              outputs[0].value["shape"]?.array?.compactMap(\.integer) == output.shape else { throw ModelError.invalidInput("output contract") }
+        guard case .object(let outputs) = task["outputs"], outputs.count == 1, outputs[0].key == "hidden" else { throw ModelError.invalidInput("output contract") }
+        try WorkerContract.validateOutput(output,spec:outputs[0].value)
         let data = try output.encoded(), digest = CanonicalJSON.sha256(data)
         var uploadHeaders = headers; uploadHeaders["Content-Type"] = "application/octet-stream"; uploadHeaders["X-Output-Name"] = "hidden"
         _ = try await client.request("PUT",path:"/v1/artifacts/"+digest,token:token,body:data,headers:uploadHeaders)

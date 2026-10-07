@@ -6,6 +6,7 @@ do {
     try runTransformerChecks()
     if CommandLine.arguments.count > 2 { try runTransformerGoldens(CommandLine.arguments[2]) }
     try runTransportChecks()
+    try runWorkerContractChecks()
     print("PASS: Swift protocol conformance")
 } catch {
     FileHandle.standardError.write(Data("FAIL: \(error)\n".utf8))
