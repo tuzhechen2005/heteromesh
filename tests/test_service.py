@@ -77,3 +77,19 @@ class ServiceTests(unittest.TestCase):
                 Coordinator._finite_artifact(path,decode_tensor(raw).header)
                 raw=encode_tensor('hidden',dtype,[1],nonfinite); path.write_bytes(raw)
                 with self.assertRaises(RequestError): Coordinator._finite_artifact(path,decode_tensor(raw).header)
+
+    def test_directory_sync_failure_prevents_upload_ack(self):
+        from unittest.mock import patch
+        raw=encode_tensor('hidden','float32',[1],b'\x00'*4)
+        digest=hashlib.sha256(raw).hexdigest()
+        with patch('heteromesh.service.sync_directory',side_effect=OSError('storage sync failed'),create=True):
+            with self.assertRaises(RemoteError): self.admin.put_artifact(digest,raw)
+        with self.server.state.lock:
+            self.assertEqual(self.server.state.db.execute('SELECT count(*) FROM output_grants').fetchone()[0],0)
+    def test_runtime_directory_is_private_on_posix(self):
+        import os
+        if os.name=='nt': return
+        root=Path(self.tmp.name)/'permissive'; root.mkdir(mode=0o755); root.chmod(0o755)
+        app=Coordinator(root)
+        try: self.assertEqual(root.stat().st_mode & 0o777,0o700)
+        finally: app.close()
