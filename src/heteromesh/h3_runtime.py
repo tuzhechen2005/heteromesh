@@ -4,6 +4,7 @@ import hashlib
 from importlib import metadata
 import inspect
 import json
+import os
 from pathlib import Path
 
 import torch
@@ -13,6 +14,31 @@ from .h3_metadata import DIFFUSERS_COMMIT
 SOURCE_SHA256='92d665e9fa10b1417088341dce5977663a180f9e6fa404fb9330062f353fe7ef'
 
 class H3RuntimeError(ValueError):pass
+
+
+def validate_device(device):
+    try:
+        result = torch.device(device)
+    except (TypeError, RuntimeError) as exc:
+        raise H3RuntimeError('invalid execution device') from exc
+    if result.type == 'cpu':
+        if result.index is not None:
+            raise H3RuntimeError('CPU device must be unindexed')
+    elif result.type == 'mps':
+        if os.environ.get('PYTORCH_ENABLE_MPS_FALLBACK') == '1':
+            raise H3RuntimeError('MPS CPU fallback must be disabled before process startup')
+        if result.index not in (None, 0) or not torch.backends.mps.is_available():
+            raise H3RuntimeError('MPS device unavailable')
+    elif result.type == 'cuda':
+        if not torch.cuda.is_available():
+            raise H3RuntimeError('CUDA unavailable')
+        index = torch.cuda.current_device() if result.index is None else result.index
+        if not 0 <= index < torch.cuda.device_count():
+            raise H3RuntimeError('CUDA device index out of range')
+        result = torch.device('cuda', index)
+    else:
+        raise H3RuntimeError('unsupported execution device')
+    return result
 
 
 def verify_upstream() -> dict:
@@ -62,7 +88,7 @@ class H3BlockRange(torch.nn.Module):
         config.validate();self.upstream=verify_upstream()
         if type(start) is not int or type(end) is not int or not 0<=start<end<=config.num_layers:raise H3RuntimeError('invalid range')
         if type(max_weight_bytes) is not int or max_weight_bytes<0:raise H3RuntimeError('invalid weight budget')
-        self.config=config;self.start=start;self.end=end;self.execution_device=torch.device(device)
+        self.config=config;self.start=start;self.end=end;self.execution_device=validate_device(device)
         if self.execution_device.type not in ('cpu','cuda','mps'):raise H3RuntimeError('unsupported execution device')
         if type(weights) is not dict:raise H3RuntimeError('weights must be a mapping')
         # Meta construction allocates no parameter storage for unselected blocks.

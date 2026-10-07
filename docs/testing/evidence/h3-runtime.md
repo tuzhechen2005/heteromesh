@@ -19,3 +19,7 @@ With the metadata fixes and main governance baseline merged, `.venv/bin/python -
 ## Limits
 
 Evidence level: E1 `synthetic_structure`. CUDA, MPS, iPhone, physical cross-device transport of H3 blocks, real H3 weights, peak memory measurements, scheduler integration, and video generation: **NOT RUN**. The wrapper's official profile validates dimensions, not provenance. Its byte limit covers parameter bytes only; callers must separately budget allocation/loading copies and activations. CPU support of this small shape does not establish official-size feasibility. Weight inputs are already allocated by the caller; local file loading and authenticated manifest integration remain separate work.
+
+## Independent review correction
+
+QA found that PyTorch's opt-in MPS fallback could bypass the explicit-backend contract. Four new regression cases first failed (MPS fallback and indexed CPU accepted, unavailable CUDA leaked a framework error). Construction now rejects enabled MPS fallback, unavailable accelerators and invalid device indices before weight transfer. These rejection tests are simulated capability checks, not accelerated H3 validation.

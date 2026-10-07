@@ -87,3 +87,11 @@ def test_forward_is_inference_only_and_preserves_mixed_precision():
     assert args['temb'].dtype==torch.float32
     assert args['rotary_cos'].dtype==torch.float32
     assert all(p.dtype==torch.bfloat16 and not p.requires_grad for p in wrapper.parameters())
+
+@pytest.mark.parametrize('device',['mps','mps:1','cuda:999','cpu:1'])
+def test_reject_unavailable_or_ambiguous_device_before_allocation(monkeypatch,device):
+    monkeypatch.setenv('PYTORCH_ENABLE_MPS_FALLBACK','1')
+    monkeypatch.setattr(torch.cuda,'is_available',lambda:False)
+    config,_,weights,_=fixture()
+    with pytest.raises(H3RuntimeError):
+        H3BlockRange(config,0,1,selected(weights,0,1),max_weight_bytes=10_000_000,device=device)
