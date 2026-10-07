@@ -112,7 +112,12 @@ class StateStore:
     def get_job(self, job_id):
         with self.lock:
             row = self._job(job_id)
-            return {'job_id': row['id'], 'state': row['state'], 'recovery_epoch': row['epoch'], 'cursor': row['cursor'], 'task_count': len(json.loads(row['request'])['tasks'])}
+            result = {'job_id': row['id'], 'state': row['state'], 'recovery_epoch': row['epoch'], 'cursor': row['cursor'], 'task_count': len(json.loads(row['request'])['tasks'])}
+            if row['state'] == 'succeeded':
+                final = self.db.execute("SELECT result FROM attempts WHERE job=? AND epoch=? AND position=? AND state='committed'", (job_id,row['epoch'],row['cursor']-1)).fetchone()
+                if final is None: raise StateError('CHECKPOINT_INVALID')
+                result['outputs'] = json.loads(final['result'])['outputs']
+            return result
 
     def submit_job(self, idempotency_key, request):
         if not isinstance(idempotency_key, str) or not 1 <= len(idempotency_key) <= 256:

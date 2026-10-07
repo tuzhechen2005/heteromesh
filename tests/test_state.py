@@ -137,3 +137,12 @@ class StateTests(unittest.TestCase):
         self.now=1000.25
         self.submit()
         self.assertIs(type(self.store.lease('pc')['deadline']),int)
+
+    def test_final_outputs_only_on_success_current_epoch(self):
+        job=self.submit()
+        self.assertNotIn('outputs',self.store.get_job(job))
+        self.finish('pc',self.store.lease('pc'))
+        self.finish('mac',self.store.lease('mac'))
+        self.store.restore(job,step_index=0)
+        self.finish('pc',self.store.lease('pc'),'e'*64)
+        self.assertEqual(self.store.get_job(job)['outputs'],{'y':'e'*64})
