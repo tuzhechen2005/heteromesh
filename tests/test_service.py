@@ -51,3 +51,15 @@ class ServiceTests(unittest.TestCase):
     def test_malformed_capabilities_rejected_before_pair_consumed(self):
         token=self.admin.request('POST','/v1/pairing',{})['token']
         with self.assertRaises(RemoteError): self.client(token).request('POST','/v1/nodes/register',{'capabilities':{'backend':'cpu'}})
+
+    def test_result_cannot_launder_unrelated_global_artifact(self):
+        node,client=self.pair()
+        secret=encode_tensor('hidden','float32',[1],b'\x00\x00\x80\x3f')
+        digest=hashlib.sha256(secret).hexdigest()
+        self.admin.put_artifact(digest,secret)
+        request={'manifest_digest':'a'*64,'profile_digest':'b'*64,'tasks':[{'task_id':'one','step_index':0,'fragment_id':'one','node_id':node['node_id'],'operation':'tiny','parameters':{},'inputs':{},'outputs':{'hidden':{'dtype':'float32','shape':[1]}}}]}
+        self.admin.request('POST','/v1/jobs',request,headers={'Idempotency-Key':'scope'})
+        task=client.request('POST','/v1/work/lease',{})['task']
+        with self.assertRaises(RemoteError): client.get_artifact(digest,task)
+        with self.assertRaises(RemoteError): client.request('POST','/v1/work/result',dict(task,outputs={'hidden':digest}))
+        with self.assertRaises(RemoteError): client.get_artifact(digest,task)

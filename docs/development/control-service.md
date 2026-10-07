@@ -69,3 +69,7 @@ Remaining product work includes full installation lifecycle, automatic placement
 ### Cross-language control refinement
 
 All control timestamps (`deadline`, pairing `expires`, node `last_seen`) use integer Unix seconds on the wire; SQLite can still use REAL internally. This keeps Swift numeric decoding consistent without changing canonical hashed model parameters. Added deadline test initially failed on float; it now passes. Executor ValueError initially escaped the worker, leaving a lease outstanding; a regression now verifies terminal INVALID_TENSOR reporting. RuntimeError reports terminal EXECUTION_FAILED, MemoryError reports OUT_OF_MEMORY, and HTTP authentication/transport response errors remain distinct. Combined protocol/governance/state/security/service/worker suite: 104 passed locally after these refinements.
+
+### Independent security review regression
+
+Root reproduced a global-artifact laundering flaw: a worker could claim another job's known digest as its result, then read it as an own committed output. Added `test_result_cannot_launder_unrelated_global_artifact`: RED reproduced the unauthorized commit. Upload completion now creates a durable output grant bound to attempt/node/job/epoch/output-name/digest only after validated bytes are published; result commit requires that grant before inspecting global cache content. Guessing a cached hash alone grants nothing. GREEN: service/worker 9 tests, including the regression and legitimate uploaded results. No global-cache existence shortcut is used for authorization.

@@ -32,6 +32,7 @@ class Coordinator:
         self.root=Path(root); self.root.mkdir(parents=True,exist_ok=True)
         self.identity=create_identity(self.root/'identity')
         self.state=StateStore(self.root/'ledger.db')
+        self.state.db.execute('CREATE TABLE IF NOT EXISTS output_grants (attempt TEXT NOT NULL, node TEXT NOT NULL, job TEXT NOT NULL, epoch INTEGER NOT NULL, name TEXT NOT NULL, digest TEXT NOT NULL, PRIMARY KEY(attempt,name,digest))')
         self.security=SecurityStore(self.root/'identity.db')
         self.artifacts=self.root/'artifacts'; self.artifacts.mkdir(exist_ok=True)
         self.quarantine=self.root/'quarantine'; self.quarantine.mkdir(exist_ok=True)
@@ -142,6 +143,9 @@ class Coordinator:
                 if row is None: raise StateError('INVALID_LEASE')
                 task=json.loads(row['task'])
             for name,digest in body['outputs'].items():
+                with self.state.lock:
+                    grant=self.state.db.execute('SELECT 1 FROM output_grants WHERE attempt=? AND node=? AND job=? AND epoch=? AND name=? AND digest=?', (body.get('attempt_id'),identity,body.get('job_id'),body.get('recovery_epoch'),name,digest)).fetchone()
+                if grant is None: raise RequestError(403,'UNAUTHORIZED_OUTPUT')
                 self._verify_artifact(digest,task['outputs'][name],name)
             h.reply(200,self.state.commit_result(identity,body,body['outputs'])); return
         if h.path=='/v1/work/error' and h.command=='POST':
@@ -200,6 +204,10 @@ class Coordinator:
                     sink.flush(); os.fsync(sink.fileno())
                 if task is not None: self._attempt(h,node)
                 os.replace(tmp,self.artifacts/digest)
+                if task is not None:
+                    with self.state._tx():
+                        self._attempt(h,node)
+                        self.state.db.execute('INSERT OR IGNORE INTO output_grants VALUES(?,?,?,?,?,?)', (task['attempt_id'],node,task['job_id'],task['recovery_epoch'],h.headers['X-Output-Name'],digest))
                 h.reply(200,{'artifact_sha256':digest})
             finally:
                 if os.path.exists(tmp): os.unlink(tmp)
