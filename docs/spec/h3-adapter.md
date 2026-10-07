@@ -69,3 +69,15 @@ H3-A01–04的schema/测试先于实现；需要重新review的语义改变不�
 每层恰含以下suffix：`norm1.weight`、`norm2.weight`、`attn.to_q.weight`、`attn.to_k.weight`、`attn.to_v.weight`、`attn.norm_q.weight`、`attn.norm_k.weight`、`attn.to_out.0.weight`、`ff.net.0.proj.weight`、`ff.net.2.weight`、`adaln_proj.linear.weight`、`adaln_proj.linear.bias`。检查必须比较集合，不能仅验证数量12；JSON重复key在解析时拒绝。
 
 测试范围补充：各合法切分位置、空/反转/越界range、缺权重/多权重、重复key、错误dtype、S/U不匹配和索引越界、全0/非有限数、partitions重叠/空洞/顺序错乱、不同模型metadata hash。真实weight loading与完整分布式去噪仍需后续专门测试，不以metadata检查替代。
+
+## H3-A06 主block运行包装器（下一增量）
+
+依赖固定 `torch==2.8.0` 与上述Diffusers git commit；安装后核对PEP610 commit记录与Transformer源码原始hash。无此可选依赖时显式报缺依赖，默认轻量CI不安装大框架；专用CPU结构CI必须实际执行上游算子测试。
+
+包装器只接收本地已经获得的主block权重，绝不下载或调用from_pretrained。初始化先验证range、官方/合成profile、输入state_dict的精确key集合、dtype、shape、有限值和权重预算，再按meta-device构建所需block并严格赋权；不构造50层完整模型。每个节点只保留本range权重。权重统一为主block原始BF16；其他精度要另增受测profile。
+
+`synthetic_structure`允许小尺寸配置与自有随机权重，报告必须携带该标签；`official`维度固定原配置，但即使通过校验也只说明本地包装器接受了给定张量，不证明权重来源真实或完整H3质量。官方模型来源验证仍依manifest哈希/授权链。
+
+执行时检查所有输入形状、dtype、device、finite及索引范围；FP32 temb和rotary不预先降精度，hidden保持BF16。返回同shape/dtype hidden，禁止非有限输出。no_grad/eval，无autograd，不把运行失败静默改在CPU上重跑。
+
+测试：使用真实上游MiniMaxH3TransformerBlock与自有随机BF16权重，固定随机种子及非零位置/时间状态，对三层的每个合法分区比较单段/分段结果；校验辅助张量未被修改，坏key/shape/dtype/预算/索引/NaN及不兼容revision拒绝。此测试为E1 CPU结构正确性；CUDA/MPS/iPhone/原模型权重及去噪视频仍未验证。
