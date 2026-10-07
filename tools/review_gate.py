@@ -155,7 +155,7 @@ def main():
                 for agent in invalidated:
                     github.status(sha, "failure", "invalidation:" + agent)
             print("Review edited/deleted; append a fresh non-author review.")
-            return 1
+            return 1 if args.check_only else 0
         comments = github.pages(f"/issues/{number}/comments")
         logins = {c["user"]["login"] for c in comments if c.get("body", "").startswith(MARKER)}
         permissions = {login: github.api(f"/collaborators/{login}/permission")["permission"] for login in logins}
@@ -165,9 +165,10 @@ def main():
                          and (s.get("description") or "").startswith("invalidation:")]
         passed, reason = evaluate(pr.get("body"), sha, comments, permissions, invalidations)
         if not args.check_only:
-            github.status(sha, "success" if passed else "failure", reason)
+            state = "success" if passed else ("pending" if reason == "no current non-author review" else "failure")
+            github.status(sha, state, reason)
         print(reason)
-        return 0 if passed else 1
+        return (0 if passed else 1) if args.check_only else 0
     except (urllib.error.URLError, ValueError, KeyError, RuntimeError) as error:
         # Do not print response bodies, tokens, or untrusted PR data.
         if sha and not args.check_only:
