@@ -1,0 +1,22 @@
+{
+  "protocol_version": 1,
+  "platform": "macos",
+  "runtime": "numpy-reference",
+  "backend": "cpu",
+  "supported_ops": [
+    "linear",
+    "relu"
+  ],
+  "wire_dtypes": [
+    "float32",
+    "bfloat16"
+  ],
+  "compute_dtypes": [
+    "float32"
+  ],
+  "memory": {
+    "unified": true,
+    "host_budget_bytes": 400,
+    "accelerator_budget_bytes": null
+  }
+}
