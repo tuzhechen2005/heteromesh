@@ -23,3 +23,7 @@ Author: `/root/research`. Date: 2026-10-06. Scope: REQ-001/003/004/005/006/008, 
 ## Evidence limits
 
 This is E1 local software verification. No H3 weights downloaded; no Windows CUDA, MPS model block, iPhone GPU or real device cluster run. TLS, leases, aggregate streaming backpressure, native iOS execution and full model checks remain separate implementation/acceptance work. Shared binary fixtures can be consumed by independent Swift tests; bit-perfect codec results do not imply cross-device floating-point model equality.
+
+## Windows CI follow-up
+
+Run 37564539584 (Windows job112609152981) failed canonical Unicode fixture because Path.read_text used the Windows locale; Linux/macOS passed. All schema/fixture text reads now explicitly use UTF-8. No expected bytes or implementation semantics were relaxed. Local full suite including governance: 73 passed; Windows re-run required before merge.

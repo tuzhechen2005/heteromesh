@@ -11,7 +11,7 @@ class ManifestError(ValueError):
 def _validate(data,kind):
     try:
         canonical_json(data)
-        schema=json.loads(files('heteromesh.schemas').joinpath(kind+'.json').read_text())
+        schema=json.loads(files('heteromesh.schemas').joinpath(kind+'.json').read_text(encoding='utf-8'))
         errors=list(Draft202012Validator(schema).iter_errors(data))
         if errors:
             raise ManifestError(f'{kind}: {errors[0].message}')

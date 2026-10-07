@@ -12,7 +12,7 @@ from heteromesh.protocol import (ProtocolError, TensorFrame, canonical_json, can
 
 ROOT = Path(__file__).resolve().parents[1]
 
-@pytest.mark.parametrize('entry',json.loads((ROOT/'fixtures/tensors/index.json').read_text()))
+@pytest.mark.parametrize('entry',json.loads((ROOT/'fixtures/tensors/index.json').read_text(encoding='utf-8')))
 def test_shared_wire_goldens(entry):
     raw=(ROOT/'fixtures/tensors'/entry['file']).read_bytes()
     frame=decode_tensor(raw)
@@ -22,7 +22,7 @@ def test_shared_wire_goldens(entry):
     assert encode_tensor(frame.header['name'],frame.header['dtype'],frame.header['shape'],frame.payload)==raw
     sink=io.BytesIO(); write_tensor(frame,sink); assert sink.getvalue()==raw
 
-@pytest.mark.parametrize('case',json.loads((ROOT/'fixtures/canonical.json').read_text()))
+@pytest.mark.parametrize('case',json.loads((ROOT/'fixtures/canonical.json').read_text(encoding='utf-8')))
 def test_shared_canonical(case):
     assert canonical_json(case['input']).hex()==case['expected_hex']
     assert canonical_digest(case['input'])==case['sha256']

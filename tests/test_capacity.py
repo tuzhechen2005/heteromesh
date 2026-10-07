@@ -5,7 +5,7 @@ from heteromesh.capacity import validate_placement,CapacityError
 ROOT=Path(__file__).resolve().parents[1]
 
 def fixture():
-    return json.loads((ROOT/'fixtures/capabilities.json').read_text()),json.loads((ROOT/'fixtures/manifest.json').read_text())['fragments']
+    return json.loads((ROOT/'fixtures/capabilities.json').read_text(encoding='utf-8')),json.loads((ROOT/'fixtures/manifest.json').read_text(encoding='utf-8'))['fragments']
 
 def test_sums_resident_but_reuses_sequential_workspaces_and_accounts_loading():
     cap,fs=fixture(); other=copy.deepcopy(fs[0]);other['id']='block1';fs.append(other)
