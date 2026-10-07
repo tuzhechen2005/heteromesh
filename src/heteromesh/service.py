@@ -20,6 +20,14 @@ from .manifests import validate_capabilities as validate_node_capabilities
 MAX_CONTROL=65536
 MAX_ARTIFACT=256*1024*1024+65540
 
+def sync_directory(path):
+    """Persist published directory entries on POSIX; Windows has a documented weaker guarantee."""
+    if os.name == 'nt': return False
+    fd=os.open(path,os.O_RDONLY | getattr(os,'O_DIRECTORY',0))
+    try: os.fsync(fd)
+    finally: os.close(fd)
+    return True
+
 class RequestError(ValueError):
     def __init__(self,status,code): self.status=status; self.code=code
 
@@ -31,7 +39,9 @@ class LimitedReader:
 
 class Coordinator:
     def __init__(self,root,*,host='127.0.0.1',port=0,validate_job=None,validate_capabilities=None):
-        self.root=Path(root); self.root.mkdir(parents=True,exist_ok=True)
+        self.root=Path(root); self.root.mkdir(parents=True,exist_ok=True,mode=0o700)
+        if os.name != 'nt': self.root.chmod(0o700)
+        self.storage_durability='posix-fsync' if os.name!='nt' else 'process-crash-only'
         self.identity=create_identity(self.root/'identity')
         self.state=StateStore(self.root/'ledger.db')
         self.state.db.execute('CREATE TABLE IF NOT EXISTS output_grants (attempt TEXT NOT NULL, node TEXT NOT NULL, job TEXT NOT NULL, epoch INTEGER NOT NULL, name TEXT NOT NULL, digest TEXT NOT NULL, PRIMARY KEY(attempt,name,digest))')
@@ -60,6 +70,7 @@ class Coordinator:
                 except StateError as exc: self.reply(409,{'error':{'code':exc.code,'message':exc.code,'retryable':False}})
                 except (ProtocolError,ValueError,TypeError,KeyError): self.reply(400,{'error':{'code':'INVALID_REQUEST','message':'INVALID_REQUEST','retryable':False}})
                 except (ConnectionError,TimeoutError): self.close_connection=True
+                except OSError: self.reply(503,{'error':{'code':'STORAGE_UNAVAILABLE','message':'Storage operation failed','retryable':False}})
         self.http=ThreadingHTTPServer((host,port),Handler)
         context=ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER); context.minimum_version=ssl.TLSVersion.TLSv1_2
         context.load_cert_chain(self.identity['cert'],self.identity['key'])
@@ -114,7 +125,7 @@ class Coordinator:
     def handle(self,h):
         artifact=re.fullmatch('/v1/artifacts/([0-9a-f]{64})',h.path)
         length=self._length(h,MAX_ARTIFACT if artifact else MAX_CONTROL)
-        if h.path=='/v1/health' and h.command=='GET': h.reply(200,{'status':'ready'}); return
+        if h.path=='/v1/health' and h.command=='GET': h.reply(200,{'status':'ready','storage_durability':self.storage_durability}); return
         if h.path=='/v1/nodes/register' and h.command=='POST':
             headers=h.headers.get_all('Authorization') or []
             if len(headers)!=1 or not headers[0].startswith('Bearer '): raise SecurityError()
@@ -222,6 +233,7 @@ class Coordinator:
                     self._finite_artifact(tmp,meta['header'])
                     self._attempt(h,node)
                 os.replace(tmp,self.artifacts/digest)
+                sync_directory(self.artifacts)
                 if task is not None:
                     with self.state._tx():
                         self._attempt(h,node)
