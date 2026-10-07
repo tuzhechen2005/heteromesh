@@ -14,6 +14,8 @@ Command: `.venv/bin/python -m pytest tests/test_h3_runtime.py tests/test_h3_meta
 
 The optional dedicated CI installs the pinned dependencies and explicitly verifies the import/source identity before testing. The ordinary lightweight suite skips this optional module when the framework is absent; that skip is not runtime validation.
 
+With the metadata fixes and main governance baseline merged, `.venv/bin/python -m pytest -q` → **138 passed**.
+
 ## Limits
 
 Evidence level: E1 `synthetic_structure`. CUDA, MPS, iPhone, physical cross-device transport of H3 blocks, real H3 weights, peak memory measurements, scheduler integration, and video generation: **NOT RUN**. The wrapper's official profile validates dimensions, not provenance. Its byte limit covers parameter bytes only; callers must separately budget allocation/loading copies and activations. CPU support of this small shape does not establish official-size feasibility. Weight inputs are already allocated by the caller; local file loading and authenticated manifest integration remain separate work.
