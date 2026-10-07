@@ -70,3 +70,20 @@ def test_reject_invalid_boundary(kind):
     if kind=='nan':args['temb'][0,0]=float('nan')
     if kind=='inf':args['hidden_states'][0,0,0]=float('inf')
     with pytest.raises(H3RuntimeError):wrapper(**args)
+
+
+def test_reject_source_drift(monkeypatch):
+    import heteromesh.h3_runtime as runtime
+    monkeypatch.setattr(runtime,'SOURCE_SHA256','0'*64)
+    with pytest.raises(H3RuntimeError):verify_upstream()
+
+
+def test_forward_is_inference_only_and_preserves_mixed_precision():
+    config,_,weights,args=fixture()
+    wrapper=H3BlockRange(config,0,1,selected(weights,0,1),max_weight_bytes=10_000_000)
+    args['hidden_states'].requires_grad_(True)
+    out=wrapper(**args)
+    assert out.dtype==torch.bfloat16 and not out.requires_grad
+    assert args['temb'].dtype==torch.float32
+    assert args['rotary_cos'].dtype==torch.float32
+    assert all(p.dtype==torch.bfloat16 and not p.requires_grad for p in wrapper.parameters())

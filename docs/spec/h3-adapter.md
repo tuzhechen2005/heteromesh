@@ -72,7 +72,7 @@ H3-A01–04的schema/测试先于实现；需要重新review的语义改变不�
 
 ## H3-A06 主block运行包装器（下一增量）
 
-依赖固定 `torch==2.8.0` 与上述Diffusers git commit；安装后核对PEP610 commit记录与Transformer源码原始hash。无此可选依赖时显式报缺依赖，默认轻量CI不安装大框架；专用CPU结构CI必须实际执行上游算子测试。
+依赖固定 `torch==2.14.1` 与上述Diffusers git commit；安装后核对PEP610 commit记录与Transformer源码原始hash。无此可选依赖时显式报缺依赖，默认轻量CI不安装大框架；专用CPU结构CI必须实际执行上游算子测试。
 
 包装器只接收本地已经获得的主block权重，绝不下载或调用from_pretrained。初始化先验证range、官方/合成profile、输入state_dict的精确key集合、dtype、shape、有限值和权重预算，再按meta-device构建所需block并严格赋权；不构造50层完整模型。每个节点只保留本range权重。权重统一为主block原始BF16；其他精度要另增受测profile。
 
