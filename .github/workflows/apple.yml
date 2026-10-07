@@ -22,13 +22,6 @@ jobs:
         run: |
           swift build --package-path apple --product apple-node
           python3 apple/IntegrationTests/tls_integration.py
-      - name: Python coordinator and Swift Transformer integration
-        run: |
-          python3 -m venv apple/build/venv
-          apple/build/venv/bin/python -m pip install '.[test]'
-          apple/build/venv/bin/python apple/IntegrationTests/coordinator_integration.py
-      - name: Compare two dependent blocks with NumPy goldens
-        run: swift run --package-path apple protocol-checks fixtures fixtures/tiny-transformer
       - name: Generate and compile foreground iOS app
         run: |
           brew install xcodegen
@@ -39,3 +32,10 @@ jobs:
         with:
           name: unsigned-ios-simulator-app
           path: apple/build/App/Build/Products/Debug-iphonesimulator/HeteroMeshApp.app
+      - name: Python coordinator and Swift Transformer integration
+        run: |
+          python3 -m venv apple/build/venv
+          apple/build/venv/bin/python -m pip install '.[test]'
+          apple/build/venv/bin/python apple/IntegrationTests/coordinator_integration.py
+      - name: Compare two dependent blocks with NumPy goldens
+        run: swift run --package-path apple protocol-checks fixtures fixtures/tiny-transformer
