@@ -37,6 +37,8 @@ class ServiceTests(unittest.TestCase):
         task=client.request('POST','/v1/work/lease',{})['task']
         self.assertEqual(client.get_artifact(digest,task),data)
         with self.assertRaises(RemoteError): outsider.get_artifact(digest,task)
+        nan_output=encode_tensor('hidden','float32',[1],b'\x00\x00\xc0\x7f')
+        with self.assertRaises(RemoteError): client.put_artifact(hashlib.sha256(nan_output).hexdigest(),nan_output,task=task,output_name='hidden')
         output=encode_tensor('hidden','float32',[1],b'\x00\x00\x00\x40')
         out_digest=hashlib.sha256(output).hexdigest()
         client.put_artifact(out_digest,output,task=task,output_name='hidden')
@@ -63,3 +65,15 @@ class ServiceTests(unittest.TestCase):
         with self.assertRaises(RemoteError): client.get_artifact(digest,task)
         with self.assertRaises(RemoteError): client.request('POST','/v1/work/result',dict(task,outputs={'hidden':digest}))
         with self.assertRaises(RemoteError): client.get_artifact(digest,task)
+
+    def test_streaming_finite_check_respects_each_float_format(self):
+        from heteromesh.service import RequestError
+        from heteromesh.protocol import decode_tensor
+        cases=[('float16',b'\xff\x7b',b'\x00\x7c'),('bfloat16',b'\x7f\x7f',b'\x80\x7f'),('float32',b'\xff\xff\x7f\x7f',b'\x00\x00\x80\x7f')]
+        for dtype,finite,nonfinite in cases:
+            with self.subTest(dtype=dtype):
+                path=Path(self.tmp.name)/'finite-check'
+                raw=encode_tensor('hidden',dtype,[1],finite); path.write_bytes(raw)
+                Coordinator._finite_artifact(path,decode_tensor(raw).header)
+                raw=encode_tensor('hidden',dtype,[1],nonfinite); path.write_bytes(raw)
+                with self.assertRaises(RequestError): Coordinator._finite_artifact(path,decode_tensor(raw).header)
