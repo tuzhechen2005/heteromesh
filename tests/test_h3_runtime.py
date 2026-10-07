@@ -95,3 +95,17 @@ def test_reject_unavailable_or_ambiguous_device_before_allocation(monkeypatch,de
     config,_,weights,_=fixture()
     with pytest.raises(H3RuntimeError):
         H3BlockRange(config,0,1,selected(weights,0,1),max_weight_bytes=10_000_000,device=device)
+
+
+def test_device_index_validation_without_allocation(monkeypatch):
+    from heteromesh.h3_runtime import validate_device
+    monkeypatch.delenv('PYTORCH_ENABLE_MPS_FALLBACK',raising=False)
+    monkeypatch.setattr(torch.cuda,'is_available',lambda:True)
+    monkeypatch.setattr(torch.cuda,'device_count',lambda:1)
+    monkeypatch.setattr(torch.cuda,'current_device',lambda:0)
+    monkeypatch.setattr(torch.backends.mps,'is_available',lambda:True)
+    assert validate_device('cuda')==torch.device('cuda:0')
+    assert validate_device('cuda:0')==torch.device('cuda:0')
+    assert validate_device('mps')==torch.device('mps')
+    for device in ('cuda:1','mps:1'):
+        with pytest.raises(H3RuntimeError):validate_device(device)
