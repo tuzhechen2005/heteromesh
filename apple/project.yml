@@ -1,0 +1,24 @@
+name: HeteroMeshApp
+options:
+  deploymentTarget:
+    iOS: '16.0'
+packages:
+  HeteroMesh:
+    path: .
+settings:
+  SWIFT_VERSION: '6.0'
+targets:
+  HeteroMeshApp:
+    type: application
+    platform: iOS
+    sources:
+      - path: App
+    info:
+      path: App/Info.plist
+    settings:
+      PRODUCT_BUNDLE_IDENTIFIER: org.heteromesh.node
+      CODE_SIGNING_ALLOWED: NO
+      GENERATE_INFOPLIST_FILE: NO
+    dependencies:
+      - package: HeteroMesh
+        product: HeteroMesh
