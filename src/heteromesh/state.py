@@ -49,6 +49,7 @@ class StateStore:
                 id TEXT PRIMARY KEY, job TEXT NOT NULL, epoch INTEGER NOT NULL,
                 position INTEGER NOT NULL, node TEXT NOT NULL, deadline REAL NOT NULL,
                 task TEXT NOT NULL, state TEXT NOT NULL, result TEXT);
+            CREATE TABLE IF NOT EXISTS abandoned_commits (attempt TEXT PRIMARY KEY);
             CREATE TABLE IF NOT EXISTS checkpoints (
                 job TEXT NOT NULL, step INTEGER NOT NULL, epoch INTEGER NOT NULL,
                 cursor INTEGER NOT NULL, PRIMARY KEY(job, step));
@@ -114,7 +115,7 @@ class StateStore:
             row = self._job(job_id)
             result = {'job_id': row['id'], 'state': row['state'], 'recovery_epoch': row['epoch'], 'cursor': row['cursor'], 'task_count': len(json.loads(row['request'])['tasks'])}
             if row['state'] == 'succeeded':
-                final = self.db.execute("SELECT result FROM attempts WHERE job=? AND epoch=? AND position=? AND state='committed'", (job_id,row['epoch'],row['cursor']-1)).fetchone()
+                final = self.db.execute("SELECT result FROM attempts WHERE job=? AND epoch=? AND position=? AND state='committed' AND id NOT IN (SELECT attempt FROM abandoned_commits)", (job_id,row['epoch'],row['cursor']-1)).fetchone()
                 if final is None: raise StateError('CHECKPOINT_INVALID')
                 result['outputs'] = json.loads(final['result'])['outputs']
             return result
@@ -141,7 +142,7 @@ class StateStore:
                 inputs[name] = reference
                 continue
             position = next(i for i, item in enumerate(request['tasks']) if item['task_id'] == reference['task_id'])
-            row = self.db.execute("SELECT result FROM attempts WHERE job=? AND position=? AND state='committed' AND epoch<=? ORDER BY epoch DESC LIMIT 1", (job['id'], position, job['epoch'])).fetchone()
+            row = self.db.execute("SELECT result FROM attempts WHERE job=? AND position=? AND state='committed' AND epoch<=? AND id NOT IN (SELECT attempt FROM abandoned_commits) ORDER BY epoch DESC LIMIT 1", (job['id'], position, job['epoch'])).fetchone()
             if row is None: raise StateError('CHECKPOINT_INVALID')
             inputs[name] = json.loads(row['result'])['outputs'][reference['output']]
         return inputs
@@ -224,11 +225,21 @@ class StateStore:
             return self.get_job(job_id)
 
     def restore(self, job_id, *, step_index):
+        if type(step_index) is not int or step_index < 0: raise StateError('CHECKPOINT_INVALID')
         with self._tx():
             job = self._job(job_id)
             if job['state'] in ('succeeded', 'cancelled', 'failed'): raise StateError('CONFLICT')
             point = self.db.execute('SELECT * FROM checkpoints WHERE job=? AND step=?', (job_id, step_index)).fetchone()
             if point is None: raise StateError('CHECKPOINT_INVALID')
+            tasks=json.loads(job['request'])['tasks']
+            cursor=point['cursor']
+            if not 0 < cursor <= job['cursor'] or cursor >= len(tasks): raise StateError('CHECKPOINT_INVALID')
+            if tasks[cursor-1]['step_index'] != step_index or tasks[cursor]['step_index'] == step_index:
+                raise StateError('CHECKPOINT_INVALID')
+            # Rollback keeps the prefix and permanently removes descendants from the active lineage.
+            # Receipts remain stored solely for idempotent acknowledgment, never future dependency resolution.
+            self.db.execute("INSERT OR IGNORE INTO abandoned_commits SELECT id FROM attempts WHERE job=? AND position>=? AND state='committed'",(job_id,cursor))
+            self.db.execute('DELETE FROM checkpoints WHERE job=? AND cursor>?',(job_id,cursor))
             self.db.execute("UPDATE attempts SET state='invalidated' WHERE job=? AND state='leased'", (job_id,))
             self.db.execute("UPDATE jobs SET epoch=epoch+1,cursor=?,state='queued',pause_requested=0 WHERE id=?", (point['cursor'], job_id))
             return self.get_job(job_id)
