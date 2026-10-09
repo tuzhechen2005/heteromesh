@@ -1,0 +1,3 @@
+# CPU-only optional loader tests. No model weights or Diffusers required.
+torch==2.14.1
+safetensors==0.8.0
