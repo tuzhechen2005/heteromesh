@@ -109,14 +109,20 @@ python -m heteromesh pair --out ~/.heteromesh/pair-b.json
 在终端 B 中激活虚拟环境后运行：
 
 ```bash
-python -m heteromesh join --pairing-file ~/.heteromesh/pair-a.json --config ~/.heteromesh/node-a.json --backend numpy
+python -m heteromesh join \
+  --pairing-file ~/.heteromesh/pair-a.json \
+  --config ~/.heteromesh/node-a.json \
+  --backend numpy
 python -m heteromesh worker --config ~/.heteromesh/node-a.json
 ```
 
 在终端 C 中激活虚拟环境后运行：
 
 ```bash
-python -m heteromesh join --pairing-file ~/.heteromesh/pair-b.json --config ~/.heteromesh/node-b.json --backend numpy
+python -m heteromesh join \
+  --pairing-file ~/.heteromesh/pair-b.json \
+  --config ~/.heteromesh/node-b.json \
+  --backend numpy
 python -m heteromesh worker --config ~/.heteromesh/node-b.json
 ```
 
@@ -168,13 +174,12 @@ python -m heteromesh verify-tiny --job <JOB_ID>
 协调器维护会话、执行计划、制品和作业状态，worker 执行本地注册的模型片段。当前小模型通过协调器传递具名张量，按依赖顺序逐段推进。
 
 ```mermaid
-flowchart TB
-    CLI["Owner CLI · 提交 / 暂停 / 继续 / 取消"] --> C
-    C["Coordinator · 配对鉴权 / 计划校验 / 任务租约"]
-    C --- S["本地存储 · SQLite 账本 / 张量制品 / 步进度"]
-    C <-->|"HTTPS · 任务与张量"| W["Windows · Python worker<br/>NumPy / Torch CPU / CUDA"]
-    C <-->|"HTTPS · 任务与张量"| M["macOS · Python worker<br/>NumPy / Torch CPU / MPS"]
-    C <-->|"HTTPS · 任务与张量"| A["Apple · Swift worker<br/>CPU / tiny profile"]
+flowchart LR
+    CLI["Owner CLI"] --> C["Coordinator"]
+    C --- S[("SQLite / Artifacts")]
+    C <-->|HTTPS| W["Windows · Python<br/>CPU / CUDA"]
+    C <-->|HTTPS| M["macOS · Python<br/>CPU / MPS"]
+    C <-->|HTTPS| A["Apple · Swift<br/>CPU · tiny profile"]
 ```
 
 图中展示软件执行路径；各平台的实测范围见[项目状态](#项目状态)。
