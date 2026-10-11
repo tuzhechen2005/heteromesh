@@ -18,6 +18,11 @@ jobs:
     timeout-minutes: 20
     env:
       HF_HUB_OFFLINE: '1'
+      GIT_CONFIG_COUNT: '2'
+      GIT_CONFIG_KEY_0: core.autocrlf
+      GIT_CONFIG_VALUE_0: 'false'
+      GIT_CONFIG_KEY_1: core.eol
+      GIT_CONFIG_VALUE_1: lf
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -32,6 +37,6 @@ jobs:
       - name: Install pinned source scheduler without model weights
         run: python -m pip install -r requirements/h3-runtime.txt '.[test]'
       - name: Verify upstream source before executing tests
-        run: python -c 'from heteromesh.h3_checkpoints import runtime; runtime()'
+        run: python -c 'from heteromesh.h3_checkpoints import runtime, source_identity; print(source_identity()); runtime()'
       - name: Real dual scheduler save restore and subprocess termination
-        run: python -m pytest tests/test_h3_checkpoints.py -q -rs
+        run: python -m pytest tests/test_h3_checkpoints.py tests/test_h3_ledger.py tests/test_h3_source_install.py -q -rs

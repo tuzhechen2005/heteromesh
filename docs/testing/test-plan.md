@@ -77,3 +77,9 @@ FLOW门禁负例必须覆盖同agent自审、陈旧SHA、无维护权限评论�
 ## 7. 证据模板
 
 每次验收记录日期、commit SHA、PR、审查智能体、机器/系统/运行时版本、manifest/profile digest、原始命令、退出码、日志与输出文件校验值、通过/失败/未运行、已知限制。真实设备测试另附节点 ID 与片段对应、峰值 CPU/GPU/统一内存、传输字节、总时长和最终视频。测试结果文档必须明确区分“已执行证据”与“计划”。
+
+## H3 ledger integration software matrix
+
+Contract: [h3-ledger-recovery.md](../spec/h3-ledger-recovery.md). `tests/test_h3_ledger.py` covers LR01 initial gate/ordinary endpoint bypass, LR02 file-first immutable/SQL transaction crash and orphan behavior, LR03 authorized two-latent payload/identity binding, LR04 lease expiry/revocation/cancel/pause/duplicate receipts, LR05 epoch request idempotency (including concurrent retries), partial-step lineage, paused/cancelled reopening, and LR06 actual tiny H3 forward at every boundary with both real schedulers and RNG draw comparison (same-CPU atol=rtol=0). Actual subprocess terminate/reopen covers write/fsync/manifest and SQL pre/mid/post commit plus recovery epoch pre/mid/post commit. No latest cache is retained by the integrated path.
+
+`tests/test_h3_source_install.py` uses real local Git and pip VCS wheel building under autocrlf=true; installation must retain LF git blob bytes. Three-platform H3 checkpoint CI executes these new cases and prints pinned revision plus both raw source hashes before validation. E1 cloud/software evidence is separate from E3/E4/E5 and never qualifies physical devices or official weights.

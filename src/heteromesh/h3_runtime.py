@@ -41,17 +41,25 @@ def validate_device(device):
     return result
 
 
-def verify_upstream() -> dict:
+def upstream_identity() -> dict:
+    """Non-secret diagnostics; raw hashes remain mandatory, without normalization."""
     try:
         direct=json.loads(metadata.distribution('diffusers').read_text('direct_url.json') or '{}')
-        commit=direct.get('vcs_info',{}).get('commit_id')
         source=Path(inspect.getfile(MiniMaxH3TransformerBlock)).read_bytes()
-        digest=hashlib.sha256(source).hexdigest()
-        if commit!=DIFFUSERS_COMMIT or digest!=SOURCE_SHA256:
-            raise H3RuntimeError('unrecognized Diffusers commit/source; install pinned optional requirements')
-        return {'diffusers_commit':commit,'source_sha256':digest}
+        return {'diffusers_commit':direct.get('vcs_info',{}).get('commit_id'),
+                'source_sha256':hashlib.sha256(source).hexdigest(),
+                'source_bytes':len(source),'source_crlf':source.count(b'\r\n')}
     except (OSError,TypeError,json.JSONDecodeError) as exc:
         raise H3RuntimeError('cannot verify upstream identity') from exc
+
+
+def verify_upstream() -> dict:
+    identity=upstream_identity()
+    if identity['diffusers_commit']!=DIFFUSERS_COMMIT:
+        raise H3RuntimeError(f"unrecognized Diffusers commit: {identity['diffusers_commit']!r}; install pinned optional requirements")
+    if identity['source_sha256']!=SOURCE_SHA256:
+        raise H3RuntimeError(f"unrecognized Diffusers source SHA256: {identity['source_sha256']}; preserve pinned source bytes when installing")
+    return {k:identity[k] for k in ('diffusers_commit','source_sha256')}
 
 
 @dataclass(frozen=True)

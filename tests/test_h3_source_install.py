@@ -19,5 +19,13 @@ def test_vcs_install_preserves_source_bytes_under_autocrlf(tmp_path,workflow):
     git('init');git('config','user.name','test');git('config','user.email','test@example.invalid')
     raw=b'first line\nsecond line\n';(source/'pinned.py').write_bytes(raw)
     git('-c','core.autocrlf=false','add','pinned.py');git('commit','-m','source')
+    (source/'setup.py').write_text("from setuptools import setup\nsetup(name='h3-source-probe',version='0.0',py_modules=['pinned'])\n")
+    git('-c','core.autocrlf=false','add','setup.py');git('commit','-m','package')
+    wheels=tmp_path/'wheels';wheels.mkdir()
+    import sys,zipfile
+    result=subprocess.run([sys.executable,'-m','pip','wheel','--no-deps','--no-build-isolation','--no-cache-dir','-w',str(wheels),'git+'+source.as_uri()],env=env,capture_output=True,text=True,timeout=60)
+    assert result.returncode==0,result.stderr
+    with zipfile.ZipFile(next(wheels.glob('*.whl'))) as wheel:
+        assert wheel.read('pinned.py')==raw,'pip VCS install converted pinned source bytes'
     dest=tmp_path/'installed';git('clone',str(source),str(dest))
     assert (dest/'pinned.py').read_bytes()==raw,'pip VCS clone converted pinned LF source to CRLF'

@@ -11,3 +11,7 @@ Implements H3-G03; synthetic real-scheduler evidence only. No pretrained weights
 - CK07: Tests use real pinned MiniMaxH3Scheduler objects, FP32 synthetic latents, independent unequal sigma grids of equal length, anchors and generators. Interrupt and reconstruct at every boundary including zero and completion; compare both output trajectories and next RNG draws bitwise. Inject failures around blob/manifest/pointer publication, and between modality updates. These prove persistence behavior with actual schedulers, not pretrained H3 quality.
 
 Memory limits are explicit per-artifact and aggregate serialized checkpoint bytes. Caller already owns live tensors; this first adapter moves each stored tensor to CPU for encoding and restores CPU tensors. CPU generator restoration is supported initially; accelerator generator relocation is refused. Future CUDA/MPS profiles require separate numerical and RNG evidence. Trusted callers supply the job binding; untrusted network clients must never receive this local filesystem API.
+
+## Coordinator integration
+
+[H3 ledger recovery](h3-ledger-recovery.md) supersedes CK04/CK05 publication policy **only for integrated H3 jobs**. `prepare` writes immutable state; `load(binding,digest)` is read-only. The ledger's digest is sole authority, and integrated operations never use the legacy latest pointer or legacy store restore. The original single-store public API remains compatible for standalone callers. Trusted Coordinator entry points bind full snapshots to same-job receipts and atomically recover ledger cursor/epoch.

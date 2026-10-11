@@ -34,7 +34,23 @@ def install(app,job,b,t,s,g):
     return app.initialize_h3(job,b,t,s,g)
 
 def advance(t,s):
-    return runpy.run_path(str(HERE/'test_h3_checkpoints.py'))['advance'](t,s)
+    from diffusers import MiniMaxH3Transformer3DModel
+    from heteromesh.h3_graph import H3GraphConfig
+    config=H3GraphConfig(profile='synthetic_structure',num_layers=2,hidden_size=24,
+        num_attention_heads=2,attention_head_dim=12,ffn_dim=32,time_embed_dim=12,rope_freq_dim=2,
+        num_refiner_layers=1,in_channels=2,audio_in_channels=2,patch_size=(1,1,1),text_dim=4,
+        freq_dim=8,time_embed_hidden_dim=16)
+    torch.manual_seed(887)
+    model=MiniMaxH3Transformer3DModel(**config.upstream_kwargs()).eval()
+    for name,part in model.named_children():part.to(torch.float32 if name in model._keep_in_fp32_modules else torch.bfloat16)
+    index=0 if s['video'].step_index is None else s['video'].step_index
+    times,indices=torch.unique(t['row_times'][index],sorted=True,return_inverse=True)
+    with torch.no_grad():
+        predictions=model(hidden_states=t['video_latents'][None],audio_hidden_states=t['audio_latents'][None],
+            encoder_hidden_states=t['prompt_embeds'],timestep=times,timestep_indices=indices,
+            **{k:t[k] for k in ('token_tags','position_ids','video_indices','audio_indices','text_indices')},return_dict=False)
+    v,a,vs,aus=step_targets(s['video'],s['audio'],t['video_latents'],t['audio_latents'],*predictions,1,1)
+    return dict(t,video_latents=v,audio_latents=a),{'video':vs,'audio':aus}
 
 def outputs(app,task,t):
     out={}
@@ -142,7 +158,7 @@ def test_repeat_receipt_and_old_epoch(tmp_path):
         assert authority(a,j)==before
     finally:a.close()
 
-@pytest.mark.parametrize('point',['prepare','blob_before_fsync','blob_after_fsync','blob_durable','manifest_durable','before_sql','inside_sql','after_sql','before_cache','after_cache'])
+@pytest.mark.parametrize('point',['prepare','blob_before_fsync','blob_after_fsync','blob_durable','manifest_durable','manifests_before_fsync','manifests_after_fsync','before_sql','inside_sql','before_sql_commit','after_sql','before_response','after_publication'])
 def test_actual_kill_commit_reopen(tmp_path,point):
     a,j,b,t,s,g=fixture(tmp_path);install(a,j,b,t,s,g);a.close()
     marker=tmp_path/'reached'
@@ -152,6 +168,7 @@ def stop(stage):
  if stage==point:
   ns['Path'](sys.argv[4]).write_text('ready')
   while True:time.sleep(.1)
+a.restore_h3(j,request_id='child-open',expected_epoch=0)
 a.h3._fault=stop;a.h3.store(j)._fault=stop
 ns['finish'](a,j,t,s,g)
 '''
@@ -164,6 +181,175 @@ ns['finish'](a,j,t,s,g)
     p.terminate();p.communicate(timeout=10)
     a=Coordinator(tmp_path)
     try:
+        r=a.restore_h3(j,request_id='r',expected_epoch=1)
+        assert r['next_step']==(1 if point in ('after_sql','before_response','after_publication') else 0)
+    finally:a.close()
+
+@pytest.mark.parametrize('point',['restore_prepare','manifests_before_fsync','manifests_after_fsync','manifest_durable','restore_before_sql','restore_inside_sql','restore_after_sql'])
+def test_actual_kill_restore_retry(tmp_path,point):
+    a,j,b,t,s,g=fixture(tmp_path);install(a,j,b,t,s,g);t,s,*_=finish(a,j,t,s,g);a.close()
+    marker=tmp_path/'reached'
+    code='''import runpy,sys,time
+ns=runpy.run_path(sys.argv[1]);a,j,b,t,s,g=ns['fixture'](sys.argv[2]);point=sys.argv[3]
+def stop(stage):
+ if stage==point:
+  ns['Path'](sys.argv[4]).write_text('ready')
+  while True:time.sleep(.1)
+a.h3._fault=stop;a.h3.store(j)._fault=stop
+a.restore_h3(j,request_id='recover',expected_epoch=0)
+'''
+    p=subprocess.Popen([sys.executable,'-c',code,str(Path(__file__).resolve()),str(tmp_path),point,str(marker)],stdout=subprocess.PIPE,stderr=subprocess.PIPE)
+    import time
+    deadline=time.monotonic()+30
+    while not marker.exists() and p.poll() is None and time.monotonic()<deadline:time.sleep(.02)
+    if not marker.exists():
+        p.kill();_,err=p.communicate();pytest.fail(err.decode())
+    p.terminate();p.communicate(timeout=10);a=Coordinator(tmp_path)
+    try:
+        r=a.restore_h3(j,request_id='recover',expected_epoch=0)
+        assert r['next_step']==1 and r['binding']['recovery_epoch']==1
+        assert a.state.get_job(j)['recovery_epoch']==1
+    finally:a.close()
+
+@pytest.mark.parametrize('status',['pause','cancel'])
+def test_paused_or_cancelled_never_reactivated(tmp_path,status):
+    a,j,b,t,s,g=fixture(tmp_path);install(a,j,b,t,s,g)
+    getattr(a.state,status)(j);a.close();a=Coordinator(tmp_path)
+    try:
+        before=authority(a,j)
+        if status=='cancel':
+            with pytest.raises(StateError):a.restore_h3(j,request_id='r',expected_epoch=0)
+            assert authority(a,j)==before
+        else:
+            a.restore_h3(j,request_id='r',expected_epoch=0)
+            assert a.state.get_job(j)['state']=='paused'
+        assert a.state.lease('pc') is None
+    finally:a.close()
+
+def test_partial_step_recomputed_under_new_epoch(tmp_path):
+    a,j,b,t,s,g=fixture(tmp_path,fragments=True);install(a,j,b,t,s,g)
+    try:
+        partial=a.state.lease('pc');receipt=a.state.commit_result('pc',partial,{'hidden':'e'*64})
+        stale=a.state.lease('pc')
         r=a.restore_h3(j,request_id='r',expected_epoch=0)
-        assert r['next_step']==(1 if point in ('after_sql','before_cache','after_cache') else 0)
+        fresh=a.state.lease('pc')
+        assert fresh['task_id']==partial['task_id'] and fresh['recovery_epoch']==1
+        assert a.state.commit_result('pc',partial,{'hidden':'e'*64})==receipt
+        assert a.state.get_job(j)['cursor']==0
+        with pytest.raises(StateError):a.state.commit_result('pc',stale,{'video_latents':'f'*64,'audio_latents':'f'*64})
+        with pytest.raises(StateError):a.state.restore(j,step_index=0)
+    finally:a.close()
+
+def test_second_scheduler_failure_has_no_half_step(tmp_path,monkeypatch):
+    from diffusers import MiniMaxH3Scheduler
+    a,j,b,t,s,g=fixture(tmp_path);install(a,j,b,t,s,g)
+    try:
+        before=authority(a,j);old=copy.deepcopy(t);original=MiniMaxH3Scheduler.step
+        def fail(self,*args,**kwargs):
+            if self.config.shift==4:raise RuntimeError('second scheduler failed')
+            return original(self,*args,**kwargs)
+        monkeypatch.setattr(MiniMaxH3Scheduler,'step',fail)
+        with pytest.raises(RuntimeError):advance(t,s)
+        assert authority(a,j)==before and s['video'].step_index is s['audio'].step_index is None
+        assert torch.equal(t['video_latents'],old['video_latents'])
+    finally:a.close()
+
+def test_https_result_and_authenticated_restore(tmp_path):
+    from heteromesh.client import PinnedClient, RemoteError
+    a,j,b,t,s,g=fixture(tmp_path)
+    thread=threading.Thread(target=a.serve_forever,daemon=True);thread.start()
+    admin=PinnedClient('127.0.0.1',a.port,a.identity['fingerprint'],token=a.identity['admin_token'])
+    try:
+        token=admin.request('POST','/v1/pairing',{})['token']
+        pair=PinnedClient('127.0.0.1',a.port,a.identity['fingerprint'],token=token)
+        cap={'protocol_version':1,'platform':'linux','runtime':'python','backend':'cpu','supported_ops':['tiny'],'wire_dtypes':['float32'],'compute_dtypes':['float32'],'memory':{'unified':False,'host_budget_bytes':10485760,'accelerator_budget_bytes':None}}
+        node=pair.request('POST','/v1/nodes/register',{'capabilities':cap})
+        worker=PinnedClient('127.0.0.1',a.port,a.identity['fingerprint'],token=node['token'])
+        request=json.loads(a.state._job(j)['request'])
+        for task in request['tasks']:task['node_id']=node['node_id']
+        j=admin.request('POST','/v1/jobs',request,headers={'Idempotency-Key':'api'})['job_id'];b['job_id']=j
+        install(a,j,b,t,s,g)
+        task=worker.request('POST','/v1/work/lease',{})['task'];out={}
+        t,s=advance(t,s)
+        for name in ('video_latents','audio_latents'):
+            raw=encode_tensor(name,'float32',[1,*t[name].shape],t[name].numpy().tobytes());sha=hashlib.sha256(raw).hexdigest()
+            worker.put_artifact(sha,raw,task=task,output_name=name);out[name]=sha
+        with pytest.raises(RemoteError):worker.request('POST','/v1/work/result',dict(task,outputs=out))
+        sha=a.prepare_h3(j,1,t,s,g)
+        receipt=worker.request('POST','/v1/work/result',dict(task,outputs=out,checkpoint_digest=sha))
+        assert receipt['checkpoint_digest']==sha
+        with pytest.raises(RemoteError):worker.request('POST',f'/v1/jobs/{j}/restore',{'request_id':'r','expected_epoch':0})
+        result=admin.request('POST',f'/v1/jobs/{j}/restore',{'request_id':'r','expected_epoch':0})
+        assert result['next_step']==1 and result['recovery_epoch']==1
+    finally:a.shutdown();thread.join();a.close()
+
+@pytest.mark.parametrize('kind',['missing','blob','manifest','binding'])
+def test_restore_failure_preserves_authority(tmp_path,kind):
+    a,j,b,t,s,g=fixture(tmp_path);sha=install(a,j,b,t,s,g)
+    try:
+        store=a.h3.store(j);p=store.root/'manifests'/sha
+        doc=json.loads(p.read_text())
+        blob=store.root/'blobs'/doc['artifacts']['video_latents']['sha256']
+        if kind=='missing':blob.unlink()
+        elif kind=='blob':blob.write_bytes(b'half')
+        elif kind=='manifest':p.write_bytes(b'half')
+        else:
+            changed=dict(b,profile_sha256='d'*64)
+            a.state.db.execute('UPDATE h3_boundaries SET binding=? WHERE job=?',(json.dumps(changed),j))
+        before=authority(a,j)
+        with pytest.raises((StateError,ValueError)):a.restore_h3(j,request_id='r',expected_epoch=0)
+        assert authority(a,j)==before
+        assert a.state.db.execute('SELECT count(*) FROM h3_restores').fetchone()[0]==0
+    finally:a.close()
+
+@pytest.mark.parametrize('kind',['foreign_latents','foreign_rng','config','wrong_shape'])
+def test_valid_foreign_snapshot_not_authorized(tmp_path,kind):
+    a,j,b,t,s,g=fixture(tmp_path);install(a,j,b,t,s,g)
+    try:
+        task=a.state.lease('pc');t,s=advance(t,s);out=outputs(a,task,t)
+        if kind=='foreign_latents':
+            t['audio_latents']=t['audio_latents'].clone();t['audio_latents'][1:]+=1
+        if kind=='foreign_rng':g=[('request',torch.Generator().manual_seed(999))]
+        if kind=='config':s['audio']._shift=8;s['audio'].register_to_config(shift=8)
+        if kind=='wrong_shape':t['audio_latents']=t['audio_latents'][None]
+        before=authority(a,j)
+        with pytest.raises((StateError,ValueError)):
+            sha=a.prepare_h3(j,1,t,s,g)
+            a.state.commit_result('pc',task,out,checkpoint_digest=sha)
+        assert authority(a,j)==before
+    finally:a.close()
+
+def test_runtime_cannot_lease_after_failed_sql_publish(tmp_path):
+    a,j,b,t,s,g=fixture(tmp_path);install(a,j,b,t,s,g)
+    try:
+        task=a.state.lease('pc');t,s=advance(t,s);out=outputs(a,task,t);sha=a.prepare_h3(j,1,t,s,g)
+        before=authority(a,j)
+        def fault(stage):
+            if stage=='inside_sql':raise OSError('transaction rollback')
+        a.h3._fault=fault
+        with pytest.raises(OSError):a.state.commit_result('pc',task,out,checkpoint_digest=sha)
+        assert authority(a,j)==before
+        state=a.h3.runtime_state(j)
+        assert state['next_step']==0
+    finally:a.close()
+
+def test_permanent_revocation_fences_commit_and_future_lease(tmp_path):
+    a,j,b,t,s,g=fixture(tmp_path);install(a,j,b,t,s,g)
+    try:
+        task=a.state.lease('pc');t,s=advance(t,s);out=outputs(a,task,t);sha=a.prepare_h3(j,1,t,s,g)
+        a.state.revoke_node('pc');before=authority(a,j)
+        with pytest.raises(StateError):a.state.commit_result('pc',task,out,checkpoint_digest=sha)
+        assert a.state.lease('pc') is None and authority(a,j)==before
+    finally:a.close()
+
+def test_concurrent_same_restore_request_is_one_epoch(tmp_path):
+    from concurrent.futures import ThreadPoolExecutor
+    a,j,b,t,s,g=fixture(tmp_path);install(a,j,b,t,s,g)
+    try:
+        barrier=threading.Barrier(2)
+        a.h3._fault=lambda stage:barrier.wait(timeout=10) if stage=='restore_prepare' else None
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            results=list(pool.map(lambda _:a.restore_h3(j,request_id='r',expected_epoch=0),range(2)))
+        assert [r['binding']['recovery_epoch'] for r in results]==[1,1]
+        assert a.state.get_job(j)['recovery_epoch']==1
     finally:a.close()

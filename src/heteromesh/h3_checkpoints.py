@@ -47,6 +47,13 @@ def digest(value):
     require(type(value) is str and re.fullmatch('[0-9a-f]{64}',value) is not None,'invalid checkpoint hash')
 
 
+def source_identity():
+    from .h3_runtime import upstream_identity
+    source=Path(inspect.getfile(MiniMaxH3Scheduler)).read_bytes()
+    return dict(upstream_identity(),scheduler_source_sha256=hashlib.sha256(source).hexdigest(),
+                scheduler_source_bytes=len(source),scheduler_source_crlf=source.count(b'\r\n'))
+
+
 def runtime():
     verify_upstream()
     require(hashlib.sha256(Path(inspect.getfile(MiniMaxH3Scheduler)).read_bytes()).hexdigest()==SCHEDULER_SOURCE,'scheduler source mismatch')
@@ -112,9 +119,14 @@ def validate_tensors(binding,tensors,schedulers):
 
 class H3CheckpointStore:
     def __init__(self,root,*,max_artifact_bytes=MAX_PAYLOAD_BYTES,max_total_bytes=2*1024**3):
-        self.root=Path(root);self.root.mkdir(parents=True,exist_ok=True,mode=0o700)
+        self.root=Path(root)
+        created=[];ancestor=self.root
+        while not ancestor.exists():created.append(ancestor);ancestor=ancestor.parent
+        self.root.mkdir(parents=True,exist_ok=True,mode=0o700)
         if os.name=='posix':self.root.chmod(0o700)
         for name in ('blobs','manifests'):(self.root/name).mkdir(exist_ok=True,mode=0o700)
+        self._sync_dir(self.root)
+        for directory in created:self._sync_dir(directory.parent)
         integer(max_artifact_bytes,1);integer(max_total_bytes,1)
         self.limit=max_artifact_bytes;self.total_limit=max_total_bytes;self._fault=lambda stage:None
         self.durability='power-loss-fsync' if os.name=='posix' else 'process-crash-only'
@@ -135,22 +147,26 @@ class H3CheckpointStore:
     def _write(self,path,raw):
         fd,temp=tempfile.mkstemp(prefix='.pending-',dir=path.parent)
         try:
-            with os.fdopen(fd,'wb') as stream:stream.write(raw);stream.flush();os.fsync(stream.fileno())
+            with os.fdopen(fd,'wb') as stream:stream.write(raw);stream.flush();self._fault('blob_before_fsync');self._fault(f'{path.parent.name}_before_fsync');os.fsync(stream.fileno());self._fault('blob_after_fsync');self._fault(f'{path.parent.name}_after_fsync')
             os.replace(temp,path);self._sync_dir(path.parent)
         finally:
             if os.path.exists(temp):os.unlink(temp)
 
     def _put(self,folder,raw):
         sha=hashlib.sha256(raw).hexdigest();path=self.root/folder/sha
-        if path.exists():require(path.read_bytes()==raw,'existing checkpoint blob corrupted')
+        if path.exists():
+            with path.open('rb') as stream:
+                require(stream.read()==raw,'existing checkpoint blob corrupted');os.fsync(stream.fileno())
         else:self._write(path,raw)
         return sha
 
-    def _latest(self):
+    def _latest(self, sha=None):
         pointer=self.root/'latest'
-        if not pointer.exists():return None
-        require(pointer.stat().st_size==64,'invalid checkpoint pointer')
-        sha=pointer.read_text(encoding='ascii');digest(sha)
+        if sha is None:
+            if not pointer.exists():return None
+            require(pointer.stat().st_size==64,'invalid checkpoint pointer')
+            sha=pointer.read_text(encoding='ascii')
+        digest(sha)
         path=self.root/'manifests'/sha
         require(path.stat().st_size<=1024*1024,'checkpoint manifest exceeds limit')
         raw=path.read_bytes();require(hashlib.sha256(raw).hexdigest()==sha,'checkpoint manifest hash mismatch')
@@ -222,34 +238,57 @@ class H3CheckpointStore:
         tensor=torch.frombuffer(bytearray(decoded.payload),dtype=dtype).clone() if decoded.payload else torch.empty(0,dtype=dtype)
         return tensor.reshape(reference['shape'])
 
+    def _load(self,binding,sha):
+        try:
+            runtime();validate_binding(binding)
+            document=self._latest(sha);require(document is not None,'no complete checkpoint')
+            require({k:document[k] for k in BINDING}==binding,'checkpoint binding/epoch mismatch')
+            exact(document['artifacts'],TENSORS);exact(document['schedulers'],{'video','audio'})
+            used=[0];read=lambda ref:self._load_tensor(ref,used)
+            tensors={name:read(ref) for name,ref in document['artifacts'].items()};schedulers={}
+            for name,record in document['schedulers'].items():
+                exact(record,{'class','config_sha256','shift','sigmas','timesteps','step_index','begin_index','num_inference_steps'})
+                shift=read(record['shift']);check_tensor(shift,torch.float32,())
+                scheduler=MiniMaxH3Scheduler(shift=shift.item());scheduler.set_timesteps(sigmas=read(record['sigmas']))
+                require(torch.equal(scheduler.timesteps,read(record['timesteps'])),'restored scheduler drift')
+                scheduler._step_index=record['step_index'];scheduler._begin_index=record['begin_index'];schedulers[name]=scheduler
+            generators=[]
+            require(type(document['rng']) is list,'invalid generator records')
+            for record in document['rng']:
+                exact(record,{'role','engine','device_type','device_index','initial_seed','state','draw_order_version'})
+                require(record['device_type']=='cpu' and record['device_index'] is None and record['engine']=='torch.Generator','unsupported generator backend')
+                require(type(record['initial_seed']) is str and re.fullmatch('0|[1-9][0-9]{0,19}',record['initial_seed']) is not None and int(record['initial_seed'])<2**64,'invalid RNG seed')
+                state=read(record['state']);require(state.dtype==torch.uint8 and state.ndim==1,'invalid RNG state')
+                generator=torch.Generator().manual_seed(int(record['initial_seed']));generator.set_state(state)
+                generators.append((record['role'],generator))
+            rebuilt,blobs=self._capture(binding,document['next_step'],tensors,schedulers,generators)
+            require(canonical_json(rebuilt)==canonical_json(document),'checkpoint schema or state inconsistency')
+            return {'binding':dict(binding),'next_step':document['next_step'],'tensors':tensors,'schedulers':schedulers,'generators':generators}
+        except (OSError,KeyError,TypeError,RuntimeError,ValueError) as exc:raise CheckpointError('checkpoint restore failed') from exc
+
+
+    def prepare(self,binding,next_step,tensors,schedulers,generators):
+        """Durable immutable state only; no authoritative pointer/epoch mutation."""
+        document,blobs=self._capture(binding,next_step,tensors,schedulers,generators)
+        with self._lock():
+            for raw in blobs.values():self._put('blobs',raw);self._fault('blob_durable')
+            raw=canonical_json(document);require(len(raw)<=1024*1024,'checkpoint manifest exceeds limit')
+            sha=self._put('manifests',raw);self._fault('manifest_durable')
+            return sha
+
     def restore(self,binding,*,new_epoch):
         try:
-            runtime();validate_binding(binding);integer(new_epoch)
-            require(new_epoch>binding['recovery_epoch'],'recovery must advance epoch')
+            integer(new_epoch);require(new_epoch>binding['recovery_epoch'],'recovery must advance epoch')
             with self._lock():
                 document=self._latest();require(document is not None,'no complete checkpoint')
-                require({k:document[k] for k in BINDING}==binding,'checkpoint binding/epoch mismatch')
-                exact(document['artifacts'],TENSORS);exact(document['schedulers'],{'video','audio'})
-                used=[0];read=lambda ref:self._load_tensor(ref,used)
-                tensors={name:read(ref) for name,ref in document['artifacts'].items()};schedulers={}
-                for name,record in document['schedulers'].items():
-                    exact(record,{'class','config_sha256','shift','sigmas','timesteps','step_index','begin_index','num_inference_steps'})
-                    shift=read(record['shift']);check_tensor(shift,torch.float32,())
-                    scheduler=MiniMaxH3Scheduler(shift=shift.item());scheduler.set_timesteps(sigmas=read(record['sigmas']))
-                    require(torch.equal(scheduler.timesteps,read(record['timesteps'])),'restored scheduler drift')
-                    scheduler._step_index=record['step_index'];scheduler._begin_index=record['begin_index'];schedulers[name]=scheduler
-                generators=[]
-                require(type(document['rng']) is list,'invalid generator records')
-                for record in document['rng']:
-                    exact(record,{'role','engine','device_type','device_index','initial_seed','state','draw_order_version'})
-                    require(record['device_type']=='cpu' and record['device_index'] is None and record['engine']=='torch.Generator','unsupported generator backend')
-                    require(type(record['initial_seed']) is str and re.fullmatch('0|[1-9][0-9]{0,19}',record['initial_seed']) is not None and int(record['initial_seed'])<2**64,'invalid RNG seed')
-                    state=read(record['state']);require(state.dtype==torch.uint8 and state.ndim==1,'invalid RNG state')
-                    generator=torch.Generator().manual_seed(int(record['initial_seed']));generator.set_state(state)
-                    generators.append((record['role'],generator))
-                rebuilt,blobs=self._capture(binding,document['next_step'],tensors,schedulers,generators)
-                require(canonical_json(rebuilt)==canonical_json(document),'checkpoint schema or state inconsistency')
-                updated=dict(binding,recovery_epoch=new_epoch);rebuilt['recovery_epoch']=new_epoch
+                sha=canonical_digest(document)
+                restored=self._load(binding,sha)
+                updated=dict(binding,recovery_epoch=new_epoch)
+                rebuilt,blobs=self._capture(updated,restored['next_step'],restored['tensors'],restored['schedulers'],restored['generators'])
                 self._publish(rebuilt,blobs)
-                return {'binding':updated,'next_step':document['next_step'],'tensors':tensors,'schedulers':schedulers,'generators':generators}
+                restored['binding']=updated
+                return restored
         except (OSError,KeyError,TypeError,RuntimeError,ValueError) as exc:raise CheckpointError('checkpoint restore failed') from exc
+
+    def load(self,binding,sha):
+        with self._lock():return self._load(binding,sha)

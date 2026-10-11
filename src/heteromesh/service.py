@@ -48,6 +48,7 @@ class Coordinator:
         self.security=SecurityStore(self.root/'identity.db')
         self.artifacts=self.root/'artifacts'; self.artifacts.mkdir(exist_ok=True)
         self.quarantine=self.root/'quarantine'; self.quarantine.mkdir(exist_ok=True)
+        self._h3=None
         self.validate_job=validate_job
         self.validate_capabilities=validate_capabilities or validate_node_capabilities
         self.transfer_lock=threading.Lock(); self.transfers={}
@@ -76,6 +77,20 @@ class Coordinator:
         context.load_cert_chain(self.identity['cert'],self.identity['key'])
         self.http.socket=context.wrap_socket(self.http.socket,server_side=True)
         self.port=self.http.server_port
+    def revoke_node(self,node):
+        # Serialize revocation with ledger result publication (same process/API).
+        with self.state.lock:
+            self.state.revoke_node(node)
+            self.security.revoke(node)
+    @property
+    def h3(self):
+        if self._h3 is None:
+            from .h3_recovery import H3Recovery
+            self._h3=H3Recovery(self)
+        return self._h3
+    def initialize_h3(self,*args,**kwargs):return self.h3.initialize(*args,**kwargs)
+    def prepare_h3(self,*args,**kwargs):return self.h3.prepare(*args,**kwargs)
+    def restore_h3(self,*args,**kwargs):return self.h3.restore(*args,**kwargs)
     def serve_forever(self): self.http.serve_forever()
     def shutdown(self): self.http.shutdown()
     def close(self): self.http.server_close(); self.state.close(); self.security.close()
@@ -141,7 +156,7 @@ class Coordinator:
         if h.path=='/v1/nodes' and h.command=='GET':
             self._admin(identity); h.reply(200,{'nodes':self.security.nodes()}); return
         if h.path.startswith('/v1/nodes/') and h.command=='DELETE':
-            self._admin(identity); node=h.path.split('/')[-1]; self.security.revoke(node); self.state.invalidate_node(node); h.reply(200,{'revoked':True}); return
+            self._admin(identity); node=h.path.split('/')[-1]; self.revoke_node(node); h.reply(200,{'revoked':True}); return
         if h.path=='/v1/heartbeat' and h.command=='POST':
             self._node(identity)
             cap=body['capabilities']
@@ -160,7 +175,7 @@ class Coordinator:
                     grant=self.state.db.execute('SELECT 1 FROM output_grants WHERE attempt=? AND node=? AND job=? AND epoch=? AND name=? AND digest=?', (body.get('attempt_id'),identity,body.get('job_id'),body.get('recovery_epoch'),name,digest)).fetchone()
                 if grant is None: raise RequestError(403,'UNAUTHORIZED_OUTPUT')
                 self._verify_artifact(digest,task['outputs'][name],name)
-            h.reply(200,self.state.commit_result(identity,body,body['outputs'])); return
+            h.reply(200,self.state.commit_result(identity,body,body['outputs'],checkpoint_digest=body.get('checkpoint_digest'))); return
         if h.path=='/v1/work/error' and h.command=='POST':
             self._node(identity); h.reply(200,self.state.report_error(identity,body,body['code'])); return
         if h.path=='/v1/jobs' and h.command=='POST':
@@ -169,6 +184,11 @@ class Coordinator:
             self.state.validate_request(body)
             self.validate_job(body,self.security.nodes())
             h.reply(200,self.state.submit_job(h.headers.get('Idempotency-Key'),body)); return
+        recovery=re.fullmatch('/v1/jobs/([0-9a-f]{32})/restore',h.path)
+        if recovery and h.command=='POST':
+            self._admin(identity)
+            restored=self.restore_h3(recovery[1],request_id=body['request_id'],expected_epoch=body['expected_epoch'])
+            h.reply(200,{'next_step':restored['next_step'],'recovery_epoch':restored['binding']['recovery_epoch']});return
         match=re.fullmatch('/v1/jobs/([0-9a-f]{32})(?:/(cancel|pause|resume))?',h.path)
         if match:
             self._admin(identity)

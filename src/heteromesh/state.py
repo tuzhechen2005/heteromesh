@@ -35,12 +35,17 @@ class StateStore:
 
     def __init__(self, path: str | Path, *, clock=time.time):
         self.clock = clock
+        self.h3_commit = None
+        self.h3_lease = None
         self.lock = threading.RLock()
         self.db = sqlite3.connect(str(path), check_same_thread=False, isolation_level=None)
         self.db.row_factory = sqlite3.Row
         self.db.execute('PRAGMA journal_mode=WAL')
         self.db.execute('PRAGMA synchronous=FULL')
         self.db.executescript('''
+            CREATE TABLE IF NOT EXISTS revoked_nodes (node TEXT PRIMARY KEY);
+            CREATE TABLE IF NOT EXISTS h3_boundaries (job TEXT PRIMARY KEY, digest TEXT NOT NULL, binding TEXT NOT NULL, cursor INTEGER NOT NULL, next_step INTEGER NOT NULL, ready INTEGER NOT NULL);
+            CREATE TABLE IF NOT EXISTS h3_restores (job TEXT NOT NULL, request TEXT NOT NULL, expected_epoch INTEGER NOT NULL, new_epoch INTEGER NOT NULL, digest TEXT NOT NULL, PRIMARY KEY(job,request));
             CREATE TABLE IF NOT EXISTS jobs (
                 id TEXT PRIMARY KEY, idem TEXT UNIQUE NOT NULL, digest TEXT NOT NULL,
                 request TEXT NOT NULL, state TEXT NOT NULL, epoch INTEGER NOT NULL,
@@ -55,6 +60,7 @@ class StateStore:
                 cursor INTEGER NOT NULL, PRIMARY KEY(job, step));
         ''')
         with self._tx():
+            self.db.execute("UPDATE h3_boundaries SET ready=0")
             self.db.execute("UPDATE attempts SET state='invalidated' WHERE state='leased'")
 
     @contextmanager
@@ -79,6 +85,7 @@ class StateStore:
         tasks = request.get('tasks')
         if not isinstance(tasks, list) or not tasks or len(tasks) > 10000:
             raise StateError('INVALID_PLAN')
+        if 'h3_recovery' in request and request['h3_recovery'] is not True:raise StateError('INVALID_PLAN')
         previous = {}
         previous_step = -1
         for task in tasks:
@@ -115,7 +122,7 @@ class StateStore:
             row = self._job(job_id)
             result = {'job_id': row['id'], 'state': row['state'], 'recovery_epoch': row['epoch'], 'cursor': row['cursor'], 'task_count': len(json.loads(row['request'])['tasks'])}
             if row['state'] == 'succeeded':
-                final = self.db.execute("SELECT result FROM attempts WHERE job=? AND epoch=? AND position=? AND state='committed' AND id NOT IN (SELECT attempt FROM abandoned_commits)", (job_id,row['epoch'],row['cursor']-1)).fetchone()
+                final = self.db.execute("SELECT result FROM attempts WHERE job=? AND epoch<=? AND position=? AND state='committed' AND id NOT IN (SELECT attempt FROM abandoned_commits)", (job_id,row['epoch'],row['cursor']-1)).fetchone()
                 if final is None: raise StateError('CHECKPOINT_INVALID')
                 result['outputs'] = json.loads(final['result'])['outputs']
             return result
@@ -150,8 +157,13 @@ class StateStore:
     def lease(self, node_id, *, duration=1800):
         if type(duration) not in (int, float) or not 0 < duration <= 86400: raise StateError('INVALID_DEADLINE')
         with self._tx():
+            if self.db.execute('SELECT 1 FROM revoked_nodes WHERE node=?',(node_id,)).fetchone():return None
             for job in self.db.execute("SELECT * FROM jobs WHERE state IN ('queued','running','pausing','waiting_for_nodes') ORDER BY rowid").fetchall():
-                task = json.loads(job['request'])['tasks'][job['cursor']]
+                request=json.loads(job['request'])
+                if request.get('h3_recovery'):
+                    point=self.db.execute('SELECT * FROM h3_boundaries WHERE job=?',(job['id'],)).fetchone()
+                    if point is None or not point['ready'] or self.h3_commit is None or self.h3_lease is None or not self.h3_lease(job):continue
+                task = request['tasks'][job['cursor']]
                 if task['node_id'] != node_id: continue
                 existing = self.db.execute("SELECT * FROM attempts WHERE job=? AND epoch=? AND position=? AND state='leased'", (job['id'], job['epoch'], job['cursor'])).fetchone()
                 if existing and existing['deadline'] > self.clock():
@@ -169,7 +181,7 @@ class StateStore:
                 return envelope
             return None
 
-    def commit_result(self, node_id, envelope, outputs):
+    def commit_result(self, node_id, envelope, outputs, *, checkpoint_digest=None):
         with self._tx():
             attempt = self.db.execute('SELECT * FROM attempts WHERE id=?', (envelope.get('attempt_id'),)).fetchone()
             if attempt is None or attempt['node'] != node_id: raise StateError('INVALID_LEASE')
@@ -181,12 +193,23 @@ class StateStore:
                 raise StateError('INVALID_OUTPUT')
             if attempt['state'] == 'committed':
                 receipt = json.loads(attempt['result'])
-                if receipt['outputs'] != outputs: raise StateError('CONFLICT')
+                if receipt['outputs'] != outputs or receipt.get('checkpoint_digest')!=checkpoint_digest: raise StateError('CONFLICT')
                 return receipt
             job = self._job(attempt['job'])
-            if attempt['state'] != 'leased' or attempt['deadline'] <= self.clock() or job['epoch'] != attempt['epoch'] or job['state'] not in ('running', 'pausing'):
+            if self.db.execute('SELECT 1 FROM revoked_nodes WHERE node=?',(node_id,)).fetchone():raise StateError('INVALID_LEASE')
+            if attempt['state'] != 'leased' or attempt['deadline'] <= self.clock() or job['epoch'] != attempt['epoch'] or job['state'] not in ('running', 'pausing') or job['cursor']!=attempt['position']:
                 raise StateError('INVALID_LEASE')
+            cursor=job['cursor']+1
+            tasks=json.loads(job['request'])['tasks']
+            boundary=cursor==len(tasks) or tasks[cursor]['step_index']!=original['step_index']
+            h3=json.loads(job['request']).get('h3_recovery')
+            if h3 and boundary:
+                if self.h3_commit is None:raise StateError('CHECKPOINT_REQUIRED')
+                self.h3_commit(job,attempt,outputs,checkpoint_digest,cursor)
+                if attempt['deadline']<=self.clock():raise StateError('INVALID_LEASE')
+            elif checkpoint_digest is not None:raise StateError('INVALID_OUTPUT')
             receipt = {'commit_id': secrets.token_hex(16), 'outputs': outputs}
+            if h3 and boundary:receipt['checkpoint_digest']=checkpoint_digest
             self.db.execute("UPDATE attempts SET state='committed',result=? WHERE id=?", (_json(receipt), attempt['id']))
             cursor = job['cursor']+1
             tasks = json.loads(job['request'])['tasks']
@@ -195,7 +218,9 @@ class StateStore:
             self.db.execute('UPDATE jobs SET cursor=?,state=? WHERE id=?', (cursor, state, job['id']))
             if boundary:
                 self.db.execute('INSERT OR REPLACE INTO checkpoints VALUES(?,?,?,?)', (job['id'], original['step_index'], job['epoch'], cursor))
-            return receipt
+            if h3 and boundary:self.h3_commit.__self__.before_commit()
+        if h3 and boundary:self.h3_commit.__self__.after_commit(job['id'])
+        return receipt
 
     def cancel(self, job_id):
         with self._tx():
@@ -229,6 +254,7 @@ class StateStore:
         with self._tx():
             job = self._job(job_id)
             if job['state'] in ('succeeded', 'cancelled', 'failed'): raise StateError('CONFLICT')
+            if json.loads(job['request']).get('h3_recovery'):raise StateError('CHECKPOINT_REQUIRED')
             point = self.db.execute('SELECT * FROM checkpoints WHERE job=? AND step=?', (job_id, step_index)).fetchone()
             if point is None: raise StateError('CHECKPOINT_INVALID')
             tasks=json.loads(job['request'])['tasks']
@@ -261,9 +287,16 @@ class StateStore:
             self.db.execute('UPDATE jobs SET state=? WHERE id=?', (state, job['id']))
             return self.get_job(job['id'])
 
-    def invalidate_node(self, node_id):
+    def revoke_node(self,node_id):
         with self._tx():
-            jobs = self.db.execute("SELECT DISTINCT job FROM attempts WHERE node=? AND state='leased'", (node_id,)).fetchall()
-            self.db.execute("UPDATE attempts SET state='invalidated' WHERE node=? AND state='leased'", (node_id,))
-            for job in jobs:
-                self.db.execute("UPDATE jobs SET state='waiting_for_nodes' WHERE id=? AND state IN ('running','pausing')", (job['job'],))
+            self.db.execute('INSERT OR IGNORE INTO revoked_nodes VALUES(?)',(node_id,))
+            self._invalidate_node(node_id)
+
+    def invalidate_node(self, node_id):
+        with self._tx():self._invalidate_node(node_id)
+
+    def _invalidate_node(self, node_id):
+        jobs = self.db.execute("SELECT DISTINCT job FROM attempts WHERE node=? AND state='leased'", (node_id,)).fetchall()
+        self.db.execute("UPDATE attempts SET state='invalidated' WHERE node=? AND state='leased'", (node_id,))
+        for job in jobs:
+            self.db.execute("UPDATE jobs SET state='waiting_for_nodes' WHERE id=? AND state IN ('running','pausing')", (job['job'],))
