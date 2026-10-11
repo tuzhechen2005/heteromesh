@@ -1,0 +1,10 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+_______ test_coordinator_revocation_crash_fences_both_databases_and_http _______
+tests/test_h3_ledger.py:482: in test_coordinator_revocation_crash_fences_both_databases_and_http
+    with pytest.raises(RemoteError):worker.request('POST','/v1/heartbeat',{'capabilities':cap})
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   Failed: DID NOT RAISE <class 'heteromesh.client.RemoteError'>
+=========================== short test summary info ============================
+FAILED tests/test_h3_ledger.py::test_coordinator_revocation_crash_fences_both_databases_and_http
+1 failed, 60 deselected in 3.73s

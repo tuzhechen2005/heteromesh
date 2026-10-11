@@ -1,0 +1,22 @@
+FFF                                                                      [100%]
+=================================== FAILURES ===================================
+_______ test_old_restore_retry_after_partial_restart_requires_new_epoch ________
+tests/test_h3_ledger.py:401: in test_old_restore_retry_after_partial_restart_requires_new_epoch
+    with pytest.raises(StateError):a.restore_h3(j,request_id='old',expected_epoch=0)
+         ^^^^^^^^^^^^^^^^^^^^^^^^^
+E   Failed: DID NOT RAISE <class 'heteromesh.state.StateError'>
+___ test_duplicate_result_recovers_current_cache_after_temporary_io_failure ____
+tests/test_h3_ledger.py:424: in test_duplicate_result_recovers_current_cache_after_temporary_io_failure
+    assert authority(a,j)==before and a.h3.active[j]['next_step']==1
+E   AssertionError: assert (([('d71826f24...}', 1, 1, 1)]) == ([('d71826f24...}', 1, 1, 1)])
+E     
+E     Use -v to get more diff and 0 == 1)
+______ test_retry_after_blob_directory_fsync_failure_reconfirms_directory ______
+tests/test_h3_ledger.py:443: in test_retry_after_blob_directory_fsync_failure_reconfirms_directory
+    assert 'blobs' in calls and 'manifests' in calls
+E   AssertionError: assert ('blobs' in ['manifests'])
+=========================== short test summary info ============================
+FAILED tests/test_h3_ledger.py::test_old_restore_retry_after_partial_restart_requires_new_epoch
+FAILED tests/test_h3_ledger.py::test_duplicate_result_recovers_current_cache_after_temporary_io_failure
+FAILED tests/test_h3_ledger.py::test_retry_after_blob_directory_fsync_failure_reconfirms_directory
+3 failed, 57 deselected in 3.67s
