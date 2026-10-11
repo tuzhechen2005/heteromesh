@@ -1,0 +1,37 @@
+name: H3 checkpoint persistence
+on:
+  pull_request:
+  push:
+    branches: [main]
+concurrency:
+  group: h3-checkpoints-${{ github.ref }}
+  cancel-in-progress: true
+permissions:
+  contents: read
+jobs:
+  h3-checkpoint:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    env:
+      HF_HUB_OFFLINE: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install CPU Torch on Linux and Windows
+        if: runner.os != 'macOS'
+        run: python -m pip install torch==2.14.1 --index-url https://download.pytorch.org/whl/cpu
+      - name: Install Torch on macOS
+        if: runner.os == 'macOS'
+        run: python -m pip install torch==2.14.1
+      - name: Install pinned source scheduler without model weights
+        run: python -m pip install -r requirements/h3-runtime.txt '.[test]'
+      - name: Verify upstream source before executing tests
+        run: python -c 'from heteromesh.h3_checkpoints import runtime; runtime()'
+      - name: Real dual scheduler save restore and subprocess termination
+        run: python -m pytest tests/test_h3_checkpoints.py -q -rs
