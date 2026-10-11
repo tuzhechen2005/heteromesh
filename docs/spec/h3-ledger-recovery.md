@@ -1,0 +1,22 @@
+# H3 ledger-bound recovery (REQ-010/020, H3-G03)
+
+Agent-Author: /root
+Original draft and recovery custody remain in checkpoint-draft-recovery-20261010.md.
+
+## Contract frozen before implementation
+
+LR01: A plan explicitly sets `h3_recovery: true`. Steps start at zero and are contiguous. Each step's last task has exactly `video_latents` and `audio_latents`, FP32 matrix or losslessly equivalent B=1 rank-three output. Other tasks may produce intermediate artifacts. A trusted local coordinator installs the full initial G03 binding/state after job creation. No first lease before durable step-zero snapshot and ledger reference. Unsupported/uninitialized H3 jobs fail closed. Generic historical restore behavior remains separate.
+
+LR02: Snapshot files are immutable content-addressed frames/manifests. Prepare validates and fsyncs all artifacts plus manifest before SQL. SQLite FULL/WAL commits receipt, cursor, boundary reference and epoch in one transaction. Snapshot `next_step=s+1` maps to completed ledger step s, and initial `next_step=0` maps to cursor zero. Ledger reference is the sole authority; orphan files cannot advance execution; latest is unused. Completion can be restored for inspection without resurrecting work.
+
+LR03: Prepare is a trusted local API, never a worker filesystem endpoint. It captures full tensors, exact two schedulers and true generator states. Commit reloads the immutable digest, checks job/model/profile/layout/config/epoch/step, previous immutable inputs, scheduler grids/config and the two authorized output frame payloads. Frame names are fixed `video_latents`/`audio_latents`; only removal of leading dimension one is allowed. Never compare checkpoint frame digests to differently named wire frames. Same-step foreign/mixed snapshots fail when their payloads differ from the authorized receipt. No claim of proving the physics of a malicious worker output.
+
+LR04: All lease/epoch/current-reference/cancel/pause/node invalidation checks repeat inside the SQL transaction after preparation. Ordinary commit_result rejects a last H3 task without valid snapshot. Repeated receipt returns the same acknowledgment without cursor movement; conflicting output or snapshot digest fails. Already committed old receipts may be acknowledged but never re-enter dependency resolution after rollback.
+
+LR05: Opening a ledger fences H3 leasing until trusted recovery. Restore selects only the current complete H3 boundary, verifies all files without mutations, and prepares an epoch-rebound manifest. It atomically abandons partial-step receipts, invalidates leases, resets cursor to boundary, and publishes digest/new epoch. request_id plus expected_epoch makes retry stable, including response loss. Pause persists; cancelled/failed jobs cannot revive. Generic restore cannot bypass H3 recovery. Recovery failure leaves authority unchanged. Recovered tensors are returned only after the transaction; callers must install those exact tensors/schedulers/generators before requesting work.
+
+LR06: E1 tests use fixed upstream MiniMaxH3Scheduler, tiny self-owned actual H3 forward, unequal schedules, anchors, stored layouts, and RNG draws. Same CPU continuous/resume tolerance is predeclared atol=0/rtol=0. Cross-backend precision remains unqualified. Actual subprocess termination and reopen cover file prepare/write/fsync/manifest, SQL before/inside/after commit, and recovery prepare/SQL before/after commit. Windows power-loss directory durability is not claimed; process-crash semantics are tested.
+
+LR07: Runtime revision AND exact source-byte identity remain mandatory. Windows installation must preserve pinned git blob bytes (disable checkout conversion before pip's VCS clone), never relax hashes or accept unknown platform hashes. Test a CRLF checkout versus fixed canonical LF install in a subprocess; current Windows CI must verify identity and execute integration suite.
+
+Trusted entry points: Coordinator.initialize_h3(job_id,binding,tensors,schedulers,generators), prepare_h3(job_id,next_step,...), restore_h3(job_id,request_id,expected_epoch). Worker result endpoint only carries checkpoint_digest; it cannot create snapshots or choose bindings. Optional runtime loaded lazily for H3 only. Authorization: local trusted owner controls initial binding; HTTPS admin restore endpoint requires admin token and returns boundary metadata, not private tensors. Local runtime installs restored state through trusted entry point. No new H3 network execution pipeline is added.
