@@ -380,6 +380,29 @@ def test_older_restore_cannot_replace_newer_runtime(tmp_path):
         assert a.state.lease('pc')['recovery_epoch']==2
     finally:release.set();a.close()
 
+def test_restore_first_activation_rejects_concurrent_partial_progress(tmp_path):
+    from concurrent.futures import ThreadPoolExecutor
+    a,j,b,t,s,g=fixture(tmp_path,fragments=True);install(a,j,b,t,s,g)
+    waiting=threading.Event();release=threading.Event()
+    try:
+        def stop(stage):
+            if stage=='restore_after_sql':waiting.set();assert release.wait(15)
+        a.h3._fault=stop
+        with ThreadPoolExecutor(max_workers=1) as pool:
+            first=pool.submit(a.restore_h3,j,request_id='one',expected_epoch=0)
+            assert waiting.wait(15)
+            task=a.state.lease('pc');assert task['recovery_epoch']==1
+            a.state.commit_result('pc',task,{'hidden':'d'*64})
+            before=authority(a,j);active=a.h3.active[j]
+            release.set()
+            with pytest.raises(StateError):first.result(timeout=15)
+        assert authority(a,j)==before and a.h3.active[j] is active
+        with pytest.raises(StateError):a.restore_h3(j,request_id='one',expected_epoch=0)
+        restored=a.restore_h3(j,request_id='two',expected_epoch=1)
+        assert restored['next_step']==0 and restored['binding']['recovery_epoch']==2
+        assert a.state.lease('pc')['fragment_id']=='prefix'
+    finally:release.set();a.close()
+
 
 def test_lazy_adapter_creation_is_singleton(tmp_path,monkeypatch):
     import time

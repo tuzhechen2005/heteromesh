@@ -91,6 +91,9 @@ def check_tensor(tensor,dtype,shape):
     require(isinstance(tensor,torch.Tensor) and tensor.dtype==dtype and tuple(tensor.shape)==tuple(shape),'checkpoint tensor shape/dtype mismatch')
     if tensor.is_floating_point():require(bool(torch.isfinite(tensor).all()),'nonfinite checkpoint tensor')
 
+def same_tensor_bytes(a,b):
+    return a.dtype==b.dtype and a.shape==b.shape and torch.equal(a.contiguous().reshape(-1).view(torch.uint8),b.contiguous().reshape(-1).view(torch.uint8))
+
 
 def validate_tensors(binding,tensors,schedulers):
     exact(tensors,TENSORS);g=binding['geometry'];e=binding['evaluation_count']
@@ -102,7 +105,7 @@ def validate_tensors(binding,tensors,schedulers):
     t=p.shape[1];s=v+a+t
     shapes={'video_latents':(torch.float32,(v,vd)),'audio_latents':(torch.float32,(a,ad)),'condition_video_rows':(torch.float32,(cv,vd)),'condition_audio_rows':(torch.float32,(ca,ad)),'prompt_embeds':(torch.bfloat16,p.shape),'position_ids':(torch.float32,(s,3)),'token_tags':(torch.int64,(s,)),'video_indices':(torch.int64,(v,)),'audio_indices':(torch.int64,(a,)),'text_indices':(torch.int64,(t,)),'row_times':(torch.float32,(e,s))}
     for name,(dtype,shape) in shapes.items():check_tensor(tensors[name],dtype,shape)
-    for modality,count in [('video',cv),('audio',ca)]:require(torch.equal(tensors[f'{modality}_latents'][:count].cpu().contiguous().view(torch.uint8),tensors[f'condition_{modality}_rows'].cpu().contiguous().view(torch.uint8)),'condition anchors changed')
+    for modality,count in [('video',cv),('audio',ca)]:require(same_tensor_bytes(tensors[f'{modality}_latents'][:count].cpu(),tensors[f'condition_{modality}_rows'].cpu()),'condition anchors changed')
     indices=[tensors[f'{name}_indices'].cpu() for name in ('video','text','audio')]
     require(torch.equal(torch.cat(indices).sort().values,torch.arange(s)),'layout is not exact disjoint cover')
     tags=tensors['token_tags'].cpu()
@@ -110,11 +113,11 @@ def validate_tensors(binding,tensors,schedulers):
     require(layout_digest(g,tensors)==binding['layout_sha256'],'layout digest mismatch')
     times=tensors['row_times'].cpu();vt=schedulers['video'].timesteps.cpu();at=schedulers['audio'].timesteps.cpu()
     vi,ti,ai=indices
-    require(torch.equal(times[:,vi[cv:]],vt[:,None].expand(e,v-cv)) and torch.equal(times[:,ti],vt[:,None].expand(e,t)),'video/text row times mismatch')
-    require(torch.equal(times[:,ai[ca:]],at[:,None].expand(e,a-ca)) and bool((times[:,ai[:ca]]==1).all()),'audio row times mismatch')
+    require(same_tensor_bytes(times[:,vi[cv:]],vt[:,None].expand(e,v-cv)) and same_tensor_bytes(times[:,ti],vt[:,None].expand(e,t)),'video/text row times mismatch')
+    require(same_tensor_bytes(times[:,ai[ca:]],at[:,None].expand(e,a-ca)) and bool((times[:,ai[:ca]]==1).all()),'audio row times mismatch')
     if cv:
         anchors=times[0,vi[:cv]]
-        require(bool(((anchors>=0)&(anchors<=1)).all()) and torch.equal(times[:,vi[:cv]],torch.maximum(vt[:,None],anchors[None,:])),'condition video row times mismatch')
+        require(bool(((anchors>=0)&(anchors<=1)).all()) and same_tensor_bytes(times[:,vi[:cv]],torch.maximum(vt[:,None],anchors[None,:])),'condition video row times mismatch')
 
 
 class H3CheckpointStore:
@@ -192,7 +195,7 @@ class H3CheckpointStore:
             require(type(scheduler) is MiniMaxH3Scheduler,'unsupported checkpoint scheduler')
             check_tensor(scheduler.sigmas,torch.float32,(e+1,));check_tensor(scheduler.timesteps,torch.float32,(e,))
             require(bool((scheduler.sigmas[1:]<scheduler.sigmas[:-1]).all()) and scheduler.sigmas[-1].item()==0 and scheduler.sigmas[0].item()<=1,'invalid sigma grid')
-            require(torch.equal(scheduler.timesteps,1-scheduler.sigmas[:-1]),'scheduler timestep mismatch')
+            require(same_tensor_bytes(scheduler.timesteps,1-scheduler.sigmas[:-1]),'scheduler timestep mismatch')
             require((scheduler.step_index is None if next_step==0 else type(scheduler.step_index) is int and scheduler.step_index==next_step) and scheduler.begin_index is None,'partial scheduler boundary')
             require(type(scheduler.num_inference_steps) is int and scheduler.num_inference_steps==e,'scheduler evaluation count mismatch')
         validate_tensors(binding,tensors,schedulers)
@@ -259,7 +262,7 @@ class H3CheckpointStore:
                 exact(record,{'class','config_sha256','shift','sigmas','timesteps','step_index','begin_index','num_inference_steps'})
                 shift=read(record['shift']);check_tensor(shift,torch.float32,())
                 scheduler=MiniMaxH3Scheduler(shift=shift.item());scheduler.set_timesteps(sigmas=read(record['sigmas']))
-                require(torch.equal(scheduler.timesteps,read(record['timesteps'])),'restored scheduler drift')
+                require(same_tensor_bytes(scheduler.timesteps,read(record['timesteps'])),'restored scheduler drift')
                 scheduler._step_index=record['step_index'];scheduler._begin_index=record['begin_index'];schedulers[name]=scheduler
             generators=[]
             require(type(document['rng']) is list,'invalid generator records')
