@@ -155,8 +155,10 @@ class H3CheckpointStore:
     def _put(self,folder,raw):
         sha=hashlib.sha256(raw).hexdigest();path=self.root/folder/sha
         if path.exists():
-            with path.open('rb') as stream:
+            with path.open('r+b') as stream:
+                # Windows CRT _commit requires a writable handle, even for unchanged bytes.
                 require(stream.read()==raw,'existing checkpoint blob corrupted');os.fsync(stream.fileno())
+            self._sync_dir(path.parent)
         else:self._write(path,raw)
         return sha
 

@@ -90,7 +90,9 @@ def test_full_state_every_boundary(tmp_path,boundary):
         assert a.state.lease('pc') is None
         r=a.restore_h3(j,request_id='restart',expected_epoch=0)
         assert r['next_step']==boundary
-        assert torch.equal(torch.randn(5,generator=g[0][1]),torch.randn(5,generator=r['generators'][0][1]))
+        original_rng=torch.Generator().manual_seed(g[0][1].initial_seed());original_rng.set_state(g[0][1].get_state())
+        restored_rng=torch.Generator().manual_seed(r['generators'][0][1].initial_seed());restored_rng.set_state(r['generators'][0][1].get_state())
+        assert torch.equal(torch.randn(5,generator=original_rng),torch.randn(5,generator=restored_rng))
         again=a.restore_h3(j,request_id='restart',expected_epoch=0)
         assert again['binding']['recovery_epoch']==1
         t,s,g=r['tensors'],r['schedulers'],r['generators']
@@ -302,7 +304,7 @@ def test_restore_failure_preserves_authority(tmp_path,kind):
         assert a.state.db.execute('SELECT count(*) FROM h3_restores').fetchone()[0]==0
     finally:a.close()
 
-@pytest.mark.parametrize('kind',['foreign_latents','foreign_rng','config','wrong_shape'])
+@pytest.mark.parametrize('kind',['foreign_latents','foreign_rng','foreign_rng_state','config','wrong_shape'])
 def test_valid_foreign_snapshot_not_authorized(tmp_path,kind):
     a,j,b,t,s,g=fixture(tmp_path);install(a,j,b,t,s,g)
     try:
@@ -310,6 +312,7 @@ def test_valid_foreign_snapshot_not_authorized(tmp_path,kind):
         if kind=='foreign_latents':
             t['audio_latents']=t['audio_latents'].clone();t['audio_latents'][1:]+=1
         if kind=='foreign_rng':g=[('request',torch.Generator().manual_seed(999))]
+        if kind=='foreign_rng_state':torch.randn(99,generator=g[0][1])
         if kind=='config':s['audio']._shift=8;s['audio'].register_to_config(shift=8)
         if kind=='wrong_shape':t['audio_latents']=t['audio_latents'][None]
         before=authority(a,j)
@@ -353,3 +356,148 @@ def test_concurrent_same_restore_request_is_one_epoch(tmp_path):
         assert [r['binding']['recovery_epoch'] for r in results]==[1,1]
         assert a.state.get_job(j)['recovery_epoch']==1
     finally:a.close()
+
+
+def test_older_restore_cannot_replace_newer_runtime(tmp_path):
+    from concurrent.futures import ThreadPoolExecutor
+    a,j,b,t,s,g=fixture(tmp_path);install(a,j,b,t,s,g)
+    waiting=threading.Event();release=threading.Event()
+    try:
+        def stop(stage):
+            if stage=='restore_after_sql' and threading.current_thread().name.startswith('first'):
+                waiting.set();assert release.wait(15)
+        a.h3._fault=stop
+        with ThreadPoolExecutor(max_workers=1,thread_name_prefix='first') as pool:
+            first=pool.submit(a.restore_h3,j,request_id='one',expected_epoch=0)
+            assert waiting.wait(15)
+            second=a.restore_h3(j,request_id='two',expected_epoch=1)
+            release.set()
+            with pytest.raises(StateError):first.result(timeout=15)
+        assert a.h3.active[j]['binding']['recovery_epoch']==2
+        assert a.state.lease('pc')['recovery_epoch']==2
+    finally:release.set();a.close()
+
+
+def test_lazy_adapter_creation_is_singleton(tmp_path,monkeypatch):
+    import time
+    from concurrent.futures import ThreadPoolExecutor
+    from heteromesh.h3_recovery import H3Recovery
+    a=Coordinator(tmp_path);original=H3Recovery.__init__;barrier=threading.Barrier(2)
+    def delayed(self,app):time.sleep(.05);original(self,app)
+    monkeypatch.setattr(H3Recovery,'__init__',delayed)
+    try:
+        def access(_):barrier.wait(10);return a.h3
+        with ThreadPoolExecutor(max_workers=2) as pool:adapters=list(pool.map(access,range(2)))
+        assert adapters[0] is adapters[1] is a.state.h3_commit.__self__
+    finally:a.close()
+
+def test_old_restore_retry_after_partial_restart_requires_new_epoch(tmp_path):
+    a,j,b,t,s,g=fixture(tmp_path,fragments=True);install(a,j,b,t,s,g)
+    a.restore_h3(j,request_id='old',expected_epoch=0)
+    task=a.state.lease('pc');a.state.commit_result('pc',task,{'hidden':'d'*64})
+    a.close();a=Coordinator(tmp_path)
+    try:
+        before=authority(a,j)
+        with pytest.raises(StateError):a.restore_h3(j,request_id='old',expected_epoch=0)
+        assert authority(a,j)==before and a.state.lease('pc') is None
+        a.restore_h3(j,request_id='new',expected_epoch=1)
+        fresh=a.state.lease('pc')
+        assert fresh['fragment_id']=='prefix' and fresh['recovery_epoch']==2
+    finally:a.close()
+
+
+@pytest.mark.parametrize('retry',[True,False])
+def test_duplicate_result_recovers_current_cache_after_temporary_io_failure(tmp_path,monkeypatch,retry):
+    a,j,b,t,s,g=fixture(tmp_path);install(a,j,b,t,s,g)
+    try:
+        task=a.state.lease('pc');t,s=advance(t,s);out=outputs(a,task,t);sha=a.prepare_h3(j,1,t,s,g)
+        store=a.h3.store(j);original=store.load;calls=0
+        def transient(*args):
+            nonlocal calls
+            calls+=1
+            if calls==3:raise OSError('temporary post-commit read failure')
+            return original(*args)
+        monkeypatch.setattr(store,'load',transient)
+        with pytest.raises(OSError):a.state.commit_result('pc',task,out,checkpoint_digest=sha)
+        before=authority(a,j)
+        if retry:
+            receipt=a.state.commit_result('pc',task,out,checkpoint_digest=sha)
+            assert receipt['checkpoint_digest']==sha
+            assert authority(a,j)==before and a.h3.active[j]['next_step']==1
+        assert a.state.lease('pc')['step_index']==1
+        assert a.h3.active[j]['next_step']==1
+    finally:a.close()
+
+
+@pytest.mark.parametrize('folder',['blobs','manifests'])
+def test_retry_after_blob_directory_fsync_failure_reconfirms_directory(tmp_path,monkeypatch,folder):
+    a,j,b,t,s,g=fixture(tmp_path);store=a.h3.store(j)
+    try:
+        _,blobs=store._capture(b,0,t,s,g);original=store._sync_dir;calls=[];failed=False
+        def sync(path):
+            nonlocal failed
+            calls.append(path.name)
+            if not failed and calls.count(folder)==(len(blobs) if folder=='blobs' else 1):
+                failed=True;raise OSError('directory fsync failed after final blob rename')
+            return original(path)
+        monkeypatch.setattr(store,'_sync_dir',sync)
+        with pytest.raises(OSError):install(a,j,b,t,s,g)
+        assert a.state.db.execute('SELECT count(*) FROM h3_boundaries').fetchone()[0]==0
+        calls.clear();install(a,j,b,t,s,g)
+        assert 'blobs' in calls and 'manifests' in calls
+    finally:a.close()
+
+def test_coordinator_revocation_crash_fences_both_databases_and_http(tmp_path):
+    from heteromesh.client import PinnedClient,RemoteError
+    a=Coordinator(tmp_path,validate_job=lambda *_:None);thread=threading.Thread(target=a.serve_forever,daemon=True);thread.start()
+    admin=PinnedClient('127.0.0.1',a.port,a.identity['fingerprint'],token=a.identity['admin_token'])
+    token=admin.request('POST','/v1/pairing',{})['token']
+    cap={'protocol_version':1,'platform':'linux','runtime':'python','backend':'cpu','supported_ops':['tiny'],'wire_dtypes':['float32'],'compute_dtypes':['float32'],'memory':{'unified':False,'host_budget_bytes':10485760,'accelerator_budget_bytes':None}}
+    pair=PinnedClient('127.0.0.1',a.port,a.identity['fingerprint'],token=token)
+    node=pair.request('POST','/v1/nodes/register',{'capabilities':cap})
+    worker=PinnedClient('127.0.0.1',a.port,a.identity['fingerprint'],token=node['token'])
+    task=dict(task_id='one',fragment_id='one',step_index=0,node_id=node['node_id'],operation='tiny',parameters={},inputs={},outputs={'hidden':{'dtype':'float32','shape':[1]}})
+    admin.request('POST','/v1/jobs',dict(manifest_digest='a'*64,profile_digest='b'*64,tasks=[task]),headers={'Idempotency-Key':'revocation'})
+    task=worker.request('POST','/v1/work/lease',{})['task'];raw=encode_tensor('hidden','float32',[1],b'\x00'*4);sha=hashlib.sha256(raw).hexdigest()
+    worker.put_artifact(sha,raw,task=task,output_name='hidden');worker.request('POST','/v1/work/result',dict(task,outputs={'hidden':sha}))
+    assert worker.get_artifact(sha,task)==raw
+    a.shutdown();thread.join();a.close();marker=tmp_path/'revocation-reached'
+    script='''import sys,time
+from pathlib import Path
+from heteromesh.service import Coordinator
+a=Coordinator(sys.argv[1]);node=a.security.nodes()[0]['node_id']
+def stop(node):
+ Path(sys.argv[2]).write_text('ready')
+ while True:time.sleep(.1)
+a.security.revoke=stop
+a.revoke_node(node)
+'''
+    p=subprocess.Popen([sys.executable,'-c',script,str(tmp_path),str(marker)],stdout=subprocess.PIPE,stderr=subprocess.PIPE)
+    import time
+    deadline=time.monotonic()+30
+    while not marker.exists() and p.poll() is None and time.monotonic()<deadline:time.sleep(.02)
+    if not marker.exists():p.kill();_,err=p.communicate();pytest.fail(err.decode())
+    p.terminate();p.communicate(timeout=10)
+    a=Coordinator(tmp_path);thread=threading.Thread(target=a.serve_forever,daemon=True);thread.start()
+    worker=PinnedClient('127.0.0.1',a.port,a.identity['fingerprint'],token=node['token'])
+    try:
+        # Demonstrate the unsynchronized identity row: effective authorization must still fail closed.
+        assert a.security.authenticate(node['token'])==node['node_id']
+        with pytest.raises(RemoteError):worker.request('POST','/v1/heartbeat',{'capabilities':cap})
+        with pytest.raises(RemoteError):worker.get_artifact(sha,task)
+        with pytest.raises(RemoteError):worker.request('POST','/v1/work/lease',{})
+    finally:a.shutdown();thread.join();a.close()
+
+def test_existing_blob_fsync_uses_writable_descriptor(tmp_path,monkeypatch):
+    from heteromesh.h3_checkpoints import H3CheckpointStore
+    store=H3CheckpointStore(tmp_path);raw=b'private synthetic immutable bytes';sha=store._put('blobs',raw)
+    blob=store.root/'blobs'/sha;original_open=Path.open;original_fsync=os.fsync;modes={}
+    def opened(path,mode='r',*args,**kwargs):
+        stream=original_open(path,mode,*args,**kwargs)
+        if path==blob:modes[stream.fileno()]=mode
+        return stream
+    def sync(fd):
+        if modes.pop(fd,None)=='rb':raise OSError(9,'Windows CRT rejects fsync on read-only file')
+        return original_fsync(fd)
+    monkeypatch.setattr(Path,'open',opened);monkeypatch.setattr(os,'fsync',sync)
+    assert store._put('blobs',raw)==sha

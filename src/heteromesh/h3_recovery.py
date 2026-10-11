@@ -16,7 +16,12 @@ class H3Recovery:
     def can_lease(self,job):
         point=self.point(job['id'])
         active=self.active.get(job['id'])
+        if point['ready'] and (active is None or active['digest']!=point['digest'] or active['binding']['recovery_epoch']!=job['epoch']):
+            self.runtime_state(job['id']);active=self.active[job['id']]
         return active is not None and active['digest']==point['digest'] and active['binding']['recovery_epoch']==job['epoch']
+
+    def refresh_current(self,job):
+        if self.point(job)['ready']:self.can_lease(self.state._job(job))
 
     def runtime_state(self,job):
         with self.state.lock:
@@ -80,6 +85,7 @@ class H3Recovery:
             if new['next_step']!=old['next_step']+1 or new['next_step']!=json.loads(attempt['task'])['step_index']+1:raise StateError('CHECKPOINT_INVALID')
             for name in set(new['tensors'])-{'video_latents','audio_latents'}:
                 if not torch.equal(new['tensors'][name],old['tensors'][name]):raise StateError('CHECKPOINT_INVALID')
+            if any(not torch.equal(a.get_state(),b.get_state()) for (_,a),(_,b) in zip(new['generators'],old['generators'])):raise StateError('CHECKPOINT_INVALID')
             if [(role,gen.initial_seed()) for role,gen in new['generators']]!=[(role,gen.initial_seed()) for role,gen in old['generators']]:raise StateError('CHECKPOINT_INVALID')
             for name in ('video','audio'):
                 a,b=new['schedulers'][name],old['schedulers'][name]
@@ -117,7 +123,7 @@ class H3Recovery:
             prior=self.state.db.execute('SELECT * FROM h3_restores WHERE job=? AND request=?',(job,request_id)).fetchone()
             if prior:
                 if row['state'] in ('cancelled','failed'):raise StateError('CONFLICT')
-                if prior['expected_epoch']!=expected_epoch or row['epoch']!=prior['new_epoch'] or point['digest']!=prior['digest']:raise StateError('CONFLICT')
+                if prior['expected_epoch']!=expected_epoch or row['epoch']!=prior['new_epoch'] or point['digest']!=prior['digest'] or row['cursor']!=point['cursor']:raise StateError('CONFLICT')
                 restored=self.store(job).load(json.loads(point['binding']),point['digest'])
                 # A restart of the same committed recovery needs installation again, but no new epoch.
                 with self.state._tx():
@@ -135,7 +141,7 @@ class H3Recovery:
             row=self.state._job(job);current=self.point(job)
             concurrent=self.state.db.execute('SELECT * FROM h3_restores WHERE job=? AND request=?',(job,request_id)).fetchone()
             if concurrent:
-                if concurrent['expected_epoch']!=expected_epoch or row['epoch']!=concurrent['new_epoch'] or current['digest']!=concurrent['digest'] or row['state'] in ('cancelled','failed'):raise StateError('CONFLICT')
+                if concurrent['expected_epoch']!=expected_epoch or row['epoch']!=concurrent['new_epoch'] or current['digest']!=concurrent['digest'] or row['cursor']!=current['cursor'] or row['state'] in ('cancelled','failed'):raise StateError('CONFLICT')
                 restored=self.store(job).load(json.loads(current['binding']),current['digest'])
                 self.active[job]=dict(restored,digest=current['digest'])
                 return restored
@@ -150,5 +156,7 @@ class H3Recovery:
             self._fault('restore_inside_sql')
         self._fault('restore_after_sql')
         with self.state.lock:
+            current=self.point(job);live=self.state._job(job)
+            if current['digest']!=sha or live['epoch']!=updated['recovery_epoch'] or live['state'] in ('cancelled','failed'):raise StateError('CONFLICT')
             self.active[job]=dict(restored,digest=sha)
         restored['binding']=updated;return restored

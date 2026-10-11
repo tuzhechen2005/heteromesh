@@ -84,10 +84,11 @@ class Coordinator:
             self.security.revoke(node)
     @property
     def h3(self):
-        if self._h3 is None:
-            from .h3_recovery import H3Recovery
-            self._h3=H3Recovery(self)
-        return self._h3
+        with self.state.lock:
+            if self._h3 is None:
+                from .h3_recovery import H3Recovery
+                self._h3=H3Recovery(self)
+            return self._h3
     def initialize_h3(self,*args,**kwargs):return self.h3.initialize(*args,**kwargs)
     def prepare_h3(self,*args,**kwargs):return self.h3.prepare(*args,**kwargs)
     def restore_h3(self,*args,**kwargs):return self.h3.restore(*args,**kwargs)
@@ -120,11 +121,14 @@ class Coordinator:
         if len(headers)!=1 or not headers[0].startswith('Bearer '): raise SecurityError()
         token=headers[0][7:]
         if hmac.compare_digest(token,self.identity['admin_token']): return 'admin'
-        return self.security.authenticate(token)
+        node=self.security.authenticate(token)
+        if self.state.is_revoked(node):raise SecurityError()
+        return node
     def _attempt(self,h,node,*,require_live=True):
         attempt_id=h.headers.get('X-Attempt-Id'); job_id=h.headers.get('X-Job-Id'); epoch=h.headers.get('X-Recovery-Epoch')
         if not epoch or not re.fullmatch('[0-9]+',epoch): raise RequestError(403,'FORBIDDEN')
         with self.state.lock:
+            if self.state.is_revoked(node):raise RequestError(403,'FORBIDDEN')
             row=self.state.db.execute('SELECT * FROM attempts WHERE id=?',(attempt_id,)).fetchone()
             if row is None or row['node']!=node or row['job']!=job_id or row['epoch']!=int(epoch): raise RequestError(403,'FORBIDDEN')
             job=self.state._job(job_id)
@@ -161,7 +165,10 @@ class Coordinator:
             self._node(identity)
             cap=body['capabilities']
             if self.validate_capabilities is not None: self.validate_capabilities(cap)
-            self.security.heartbeat(identity,cap); h.reply(200,{'accepted':True}); return
+            with self.state.lock:
+                self._node(identity)
+                self.security.heartbeat(identity,cap)
+            h.reply(200,{'accepted':True}); return
         if h.path=='/v1/work/lease' and h.command=='POST':
             self._node(identity); h.reply(200,{'task':self.state.lease(identity)}); return
         if h.path=='/v1/work/result' and h.command=='POST':
@@ -198,7 +205,7 @@ class Coordinator:
     def _admin(self,identity):
         if identity!='admin': raise RequestError(403,'FORBIDDEN')
     def _node(self,identity):
-        if identity=='admin': raise RequestError(403,'FORBIDDEN')
+        if identity=='admin' or self.state.is_revoked(identity): raise RequestError(403,'FORBIDDEN')
     @staticmethod
     def _finite_artifact(path,header):
         dtype=header['dtype']

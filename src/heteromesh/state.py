@@ -194,6 +194,8 @@ class StateStore:
             if attempt['state'] == 'committed':
                 receipt = json.loads(attempt['result'])
                 if receipt['outputs'] != outputs or receipt.get('checkpoint_digest')!=checkpoint_digest: raise StateError('CONFLICT')
+                if json.loads(self._job(attempt['job'])['request']).get('h3_recovery') and self.h3_commit is not None:
+                    self.h3_commit.__self__.refresh_current(attempt['job'])
                 return receipt
             job = self._job(attempt['job'])
             if self.db.execute('SELECT 1 FROM revoked_nodes WHERE node=?',(node_id,)).fetchone():raise StateError('INVALID_LEASE')
@@ -286,6 +288,9 @@ class StateStore:
             state = 'waiting_for_nodes' if code in ('NODE_UNAVAILABLE', 'DEADLINE_EXCEEDED') else 'failed'
             self.db.execute('UPDATE jobs SET state=? WHERE id=?', (state, job['id']))
             return self.get_job(job['id'])
+
+    def is_revoked(self,node_id):
+        with self.lock:return self.db.execute('SELECT 1 FROM revoked_nodes WHERE node=?',(node_id,)).fetchone() is not None
 
     def revoke_node(self,node_id):
         with self._tx():
