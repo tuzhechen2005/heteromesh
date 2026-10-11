@@ -126,8 +126,9 @@ class H3CheckpointStore:
         if os.name=='posix':self.root.chmod(0o700)
         for name in ('blobs','manifests'):(self.root/name).mkdir(exist_ok=True,mode=0o700)
         # Reconfirm directory entries on retries too: existence does not prove an
-        # earlier mkdir's parent fsync succeeded. The coordinator bounds this
-        # chain at its already durable ledger storage root.
+        # earlier mkdir's parent fsync succeeded. Default through filesystem
+        # root, including a coordinator root which was itself newly created.
+        # A caller may explicitly bound this at a pre-established durable root.
         directory=self.root
         while True:
             self._sync_dir(directory)
