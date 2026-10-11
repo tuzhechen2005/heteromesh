@@ -53,7 +53,7 @@ def make_installations(tmp_path):
             path=tmp_path/(name+'.safetensors');save_file({k:weights[k] for k in expected},str(path))
             entry['shard']={'path':path.name,'size_bytes':path.stat().st_size,'sha256':hashlib.sha256(path.read_bytes()).hexdigest()}
         records.append(entry)
-    profile=canonical_digest({'config':asdict(config),'stages':records,'sampling':'test-three-evaluations-v1'})
+    profile=canonical_digest({'config':json.loads(json.dumps(asdict(config))),'stages':records,'sampling':'test-three-evaluations-v1'})
     return config,model,args,records,profile
 
 
@@ -129,3 +129,33 @@ def test_two_process_https_chain_and_atomic_step(tmp_path,fail_step):
         server.shutdown();serving.join();server.close()
     assert len({r['pid'] for r in observations if r.get('executed')})==2
     assert all(r['pid']!=os.getpid() for r in observations)
+
+@pytest.mark.parametrize('value',[torch.tensor(1.,dtype=torch.bfloat16),torch.empty((0,2)),torch.tensor([4],dtype=torch.int64)])
+def test_frame_edge_shapes(value):
+    assert torch.equal(frame_to_tensor('x',decode_tensor(tensor_to_frame('x',value))),value)
+
+
+def test_prepared_plan_rejects_remote_changes_and_absent_operation():
+    request={'profile':{'id':'h3-synthetic-stage-chain-v1'},'tasks':[{'node_id':'node','operation':'h3_prefix_v1'}]}
+    admission=PreparedH3Admission();admission.add(request)
+    cap={'supported_ops':['h3_prefix_v1'],'wire_dtypes':['float32','bfloat16','int64'],'compute_dtypes':['float32','bfloat16'],
+        'backend':'cpu','memory':{'host_budget_bytes':1024**3}}
+    node={'node_id':'node','revoked':False,'last_seen':time.time(),'capabilities':cap}
+    admission(request,[node])
+    cap['supported_ops']=[]
+    with pytest.raises(H3RuntimeError):admission(request,[node])
+    cap['supported_ops']=['h3_prefix_v1'];request['tasks'][0]['operation']='remote_code'
+    with pytest.raises(H3RuntimeError):admission(request,[node])
+
+
+def test_scheduler_rejects_extra_batch_instead_of_dropping_it():
+    from diffusers import MiniMaxH3Scheduler
+    pair=[MiniMaxH3Scheduler(),MiniMaxH3Scheduler()]
+    for s in pair:s.set_timesteps(3)
+    execute=StageExecutor('a'*64,'scheduler','scheduler_pair',max_boundary_bytes=16*1024*1024,schedulers=pair)
+    values={k:torch.ones(2,3,4) for k in ('hidden_states','audio_hidden_states','video_velocity','audio_velocity')}
+    # Velocities deliberately B=1: previously the executor silently selected latent batch zero.
+    values['video_velocity']=values['video_velocity'][:1];values['audio_velocity']=values['audio_velocity'][:1]
+    frames={k:decode_tensor(tensor_to_frame(k,v)) for k,v in values.items()}
+    task={'operation':'h3_scheduler_pair_v1','manifest_digest':'a'*64,'parameters':{'profile_digest':'a'*64,'stage_id':'scheduler'},'step_index':0}
+    with pytest.raises(H3RuntimeError):execute(task,frames)
