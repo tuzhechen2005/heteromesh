@@ -51,6 +51,8 @@ public func runProtocolChecks(fixtures: String? = nil) throws {
     try rejectsUnknownTensorHeaderField()
     try tensorRejectsInvalidDimensionsBeforeAllocation()
     try bf16PreservesBitsAndFinitePolicy()
+    let emptyInteger = try TensorFrame(name: "x", dtype: .int32, shape: [0], payload: Data())
+    try rejects { _ = try emptyInteger.finiteFloat32Values() }
     if let fixtures { try sharedFixtures(URL(fileURLWithPath: fixtures)) }
 }
 private func sharedFixtures(_ root: URL) throws {

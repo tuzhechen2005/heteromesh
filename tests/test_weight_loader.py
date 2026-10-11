@@ -132,3 +132,51 @@ def test_safetensors_validation_error_is_domain_error(tmp_path,monkeypatch):
     def fail(*args,**kw): raise SafetensorError('library rejected file')
     monkeypatch.setattr(module,'safe_open',fail)
     with pytest.raises(WeightLoadError): call(tmp_path,records,mapping,expected)
+
+
+def test_path_and_descriptor_time_semantics_are_tracked_separately(tmp_path,monkeypatch):
+    # CPython3.12 Windows path.stat ctime is legacy birthtime, while fstat
+    # can expose ChangeTime. Both must stay stable without equating them.
+    import heteromesh.weight_loader as module
+    records,mapping,expected=setup(tmp_path)
+    original=module.os.fstat
+    class DescriptorTimes:
+        def __init__(self,value): self.value=value
+        def __getattr__(self,name):
+            if name=='st_ctime_ns': return self.value.st_ctime_ns+123456
+            return getattr(self.value,name)
+    monkeypatch.setattr(module.os,'fstat',lambda fd:DescriptorTimes(original(fd)))
+    result=call(tmp_path,records,mapping,expected)
+    assert len(result)==2
+
+
+def test_budget_counts_all_selected_mmap_pages_in_same_shard(tmp_path,monkeypatch):
+    import heteromesh.weight_loader as module
+    save_file({'a':torch.ones(1000),'b':torch.ones(1000)},str(tmp_path/'s'))
+    rec=record(tmp_path/'s')
+    with open(tmp_path/'s','rb') as handle: header_size=int.from_bytes(handle.read(8),'little')
+    # Old budget used output8000 + largest4000; both mmap source tensors can
+    # remain resident within one safe_open lifetime, so require source8000.
+    insufficient=module.CHUNK_BYTES+header_size+8000+4000
+    monkeypatch.setattr(module,'safe_open',lambda *a,**kw:pytest.fail('underbudget mmap opened'))
+    with pytest.raises(WeightLoadError,match='budget'):
+        call(tmp_path,{'s':rec},{'a':'s','b':'s'},
+             {'a':WeightSpec((1000,),'F32'),'b':WeightSpec((1000,),'F32')},loading=insufficient)
+
+
+def test_descriptor_timestamp_change_alone_is_rejected(tmp_path,monkeypatch):
+    import heteromesh.weight_loader as module
+    records,mapping,expected=setup(tmp_path)
+    original=module.os.fstat; seen={}
+    class Changed:
+        def __init__(self,value): self.value=value
+        def __getattr__(self,name):
+            if name=='st_ctime_ns': return self.value.st_ctime_ns+1
+            return getattr(self.value,name)
+    def fstat(fd):
+        seen[fd]=seen.get(fd,0)+1
+        info=original(fd)
+        return Changed(info) if seen[fd]>1 else info
+    monkeypatch.setattr(module.os,'fstat',fstat)
+    with pytest.raises(WeightLoadError,match='changed'):
+        call(tmp_path,records,mapping,expected)

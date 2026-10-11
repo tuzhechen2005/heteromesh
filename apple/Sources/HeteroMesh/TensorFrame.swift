@@ -69,6 +69,7 @@ public struct TensorFrame: Sendable {
 
     /// Explicit model-input conversion. The codec itself preserves arbitrary bit patterns.
     public func finiteFloat32Values() throws -> [Float] {
+        guard [.float32, .float16, .bfloat16].contains(dtype) else { throw ProtocolError.unsupportedDType }
         let b = Array(payload); var values: [Float] = []; values.reserveCapacity(b.count / dtype.byteWidth)
         for i in stride(from: 0, to: b.count, by: dtype.byteWidth) {
             let value: Float

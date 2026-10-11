@@ -21,4 +21,25 @@ jobs:
         shell: bash
         run: |
           mkdir -p apple/build
-          xcrun --sdk iphonesimulator swiftc -swift-version 6 -emit-library -module-name HeteroMesh -target arm64-apple-ios16.0-simulator -sdk "$(xcrun --sdk iphonesimulator --show-sdk-path)" apple/Sources/HeteroMesh/*.swift -o apple/build/libHeteroMesh.dylib
+          xcrun --sdk iphonesimulator swiftc -swift-version 6 -package-name HeteroMesh -emit-library -module-name HeteroMesh -target arm64-apple-ios16.0-simulator -sdk "$(xcrun --sdk iphonesimulator --show-sdk-path)" apple/Sources/HeteroMesh/*.swift -o apple/build/libHeteroMesh.dylib
+      - name: Build worker and run real pinned TLS tests
+        run: |
+          swift build --package-path apple --product apple-node
+          python3 apple/IntegrationTests/tls_integration.py
+      - name: Generate and compile foreground iOS app
+        run: |
+          brew install xcodegen
+          cd apple
+          xcodegen generate
+          xcodebuild -project HeteroMeshApp.xcodeproj -scheme HeteroMeshApp -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' -derivedDataPath build/App CODE_SIGNING_ALLOWED=NO build
+      - uses: actions/upload-artifact@v4
+        with:
+          name: unsigned-ios-simulator-app
+          path: apple/build/App/Build/Products/Debug-iphonesimulator/HeteroMeshApp.app
+      - name: Python coordinator and Swift Transformer integration
+        run: |
+          python3 -m venv apple/build/venv
+          apple/build/venv/bin/python -m pip install '.[test]'
+          apple/build/venv/bin/python apple/IntegrationTests/coordinator_integration.py
+      - name: Compare two dependent blocks with NumPy goldens
+        run: swift run --package-path apple protocol-checks fixtures fixtures/tiny-transformer
