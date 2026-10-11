@@ -118,15 +118,21 @@ def validate_tensors(binding,tensors,schedulers):
 
 
 class H3CheckpointStore:
-    def __init__(self,root,*,max_artifact_bytes=MAX_PAYLOAD_BYTES,max_total_bytes=2*1024**3):
-        self.root=Path(root)
-        created=[];ancestor=self.root
-        while not ancestor.exists():created.append(ancestor);ancestor=ancestor.parent
+    def __init__(self,root,*,max_artifact_bytes=MAX_PAYLOAD_BYTES,max_total_bytes=2*1024**3,durability_root=None):
+        self.root=Path(root).absolute()
+        bound=Path(durability_root).absolute() if durability_root is not None else Path(self.root.anchor)
+        require(bound==self.root or bound in self.root.parents,'invalid durability root')
         self.root.mkdir(parents=True,exist_ok=True,mode=0o700)
         if os.name=='posix':self.root.chmod(0o700)
         for name in ('blobs','manifests'):(self.root/name).mkdir(exist_ok=True,mode=0o700)
-        self._sync_dir(self.root)
-        for directory in created:self._sync_dir(directory.parent)
+        # Reconfirm directory entries on retries too: existence does not prove an
+        # earlier mkdir's parent fsync succeeded. The coordinator bounds this
+        # chain at its already durable ledger storage root.
+        directory=self.root
+        while True:
+            self._sync_dir(directory)
+            if directory==bound:break
+            directory=directory.parent
         integer(max_artifact_bytes,1);integer(max_total_bytes,1)
         self.limit=max_artifact_bytes;self.total_limit=max_total_bytes;self._fault=lambda stage:None
         self.durability='power-loss-fsync' if os.name=='posix' else 'process-crash-only'

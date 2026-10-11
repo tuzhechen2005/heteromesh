@@ -35,7 +35,7 @@ class H3Recovery:
     def store(self,job):
         # job ids originate from the ledger, never user filesystem paths.
         self.state._job(job)
-        if job not in self._stores:self._stores[job]=H3CheckpointStore(self.app.root/'h3'/job)
+        if job not in self._stores:self._stores[job]=H3CheckpointStore(self.app.root/'h3'/job,durability_root=self.app.root)
         return self._stores[job]
 
     def point(self,job):

@@ -501,3 +501,20 @@ def test_existing_blob_fsync_uses_writable_descriptor(tmp_path,monkeypatch):
         return original_fsync(fd)
     monkeypatch.setattr(Path,'open',opened);monkeypatch.setattr(os,'fsync',sync)
     assert store._put('blobs',raw)==sha
+
+@pytest.mark.parametrize('failed_parent',['h3','coordinator'])
+def test_retry_store_creation_reconfirms_ancestor_entries(tmp_path,monkeypatch,failed_parent):
+    from heteromesh.h3_checkpoints import H3CheckpointStore
+    root=tmp_path/'coordinator';root.mkdir()
+    target=root/'h3'/'job';original=H3CheckpointStore._sync_dir;seen=[];failed=False
+    def sync(self,path):
+        nonlocal failed
+        seen.append(path)
+        if path.name==failed_parent and not failed:
+            failed=True;raise OSError('ancestor directory fsync failed')
+        return original(self,path)
+    monkeypatch.setattr(H3CheckpointStore,'_sync_dir',sync)
+    with pytest.raises(OSError):H3CheckpointStore(target,durability_root=root)
+    seen.clear();store=H3CheckpointStore(target,durability_root=root)
+    assert root/'h3' in seen and root in seen
+    assert store._put('blobs',b'synthetic')
