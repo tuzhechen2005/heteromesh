@@ -304,7 +304,7 @@ def test_restore_failure_preserves_authority(tmp_path,kind):
         assert a.state.db.execute('SELECT count(*) FROM h3_restores').fetchone()[0]==0
     finally:a.close()
 
-@pytest.mark.parametrize('kind',['foreign_latents','foreign_rng','foreign_rng_state','config','wrong_shape','anchor_zero','sigma_zero'])
+@pytest.mark.parametrize('kind',['foreign_latents','foreign_rng','foreign_rng_state','config','wrong_shape','anchor_zero','sigma_zero','latent_anchor_zero'])
 def test_valid_foreign_snapshot_not_authorized(tmp_path,kind):
     a,j,b,t,s,g=fixture(tmp_path);install(a,j,b,t,s,g)
     try:
@@ -316,6 +316,7 @@ def test_valid_foreign_snapshot_not_authorized(tmp_path,kind):
         if kind=='config':s['audio']._shift=8;s['audio'].register_to_config(shift=8)
         if kind=='wrong_shape':t['audio_latents']=t['audio_latents'][None]
         if kind=='anchor_zero':t['condition_audio_rows']=t['condition_audio_rows'].clone();t['condition_audio_rows'][0,0]=-0.0
+        if kind=='latent_anchor_zero':t['audio_latents']=t['audio_latents'].clone();t['audio_latents'][0,0]=-0.0;out=outputs(a,task,t)
         if kind=='sigma_zero':s['audio'].sigmas=s['audio'].sigmas.clone();s['audio'].sigmas[-1]=-0.0
         before=authority(a,j)
         with pytest.raises((StateError,ValueError)):

@@ -102,7 +102,7 @@ def validate_tensors(binding,tensors,schedulers):
     t=p.shape[1];s=v+a+t
     shapes={'video_latents':(torch.float32,(v,vd)),'audio_latents':(torch.float32,(a,ad)),'condition_video_rows':(torch.float32,(cv,vd)),'condition_audio_rows':(torch.float32,(ca,ad)),'prompt_embeds':(torch.bfloat16,p.shape),'position_ids':(torch.float32,(s,3)),'token_tags':(torch.int64,(s,)),'video_indices':(torch.int64,(v,)),'audio_indices':(torch.int64,(a,)),'text_indices':(torch.int64,(t,)),'row_times':(torch.float32,(e,s))}
     for name,(dtype,shape) in shapes.items():check_tensor(tensors[name],dtype,shape)
-    for modality,count in [('video',cv),('audio',ca)]:require(torch.equal(tensors[f'{modality}_latents'][:count].cpu(),tensors[f'condition_{modality}_rows'].cpu()),'condition anchors changed')
+    for modality,count in [('video',cv),('audio',ca)]:require(torch.equal(tensors[f'{modality}_latents'][:count].cpu().contiguous().view(torch.uint8),tensors[f'condition_{modality}_rows'].cpu().contiguous().view(torch.uint8)),'condition anchors changed')
     indices=[tensors[f'{name}_indices'].cpu() for name in ('video','text','audio')]
     require(torch.equal(torch.cat(indices).sort().values,torch.arange(s)),'layout is not exact disjoint cover')
     tags=tensors['token_tags'].cpu()
