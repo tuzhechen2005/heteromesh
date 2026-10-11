@@ -6,6 +6,9 @@ from .state import StateError, _json
 from .h3_checkpoints import H3CheckpointStore, BINDING, LAYOUT, CheckpointError
 from .protocol import decode_tensor, canonical_json
 
+def _same_bytes(a,b):
+    return a.dtype==b.dtype and a.shape==b.shape and torch.equal(a.contiguous().view(torch.uint8),b.contiguous().view(torch.uint8))
+
 class H3Recovery:
     def __init__(self,coordinator):
         self.app=coordinator;self.state=coordinator.state;self._stores={};self._fault=lambda stage:None
@@ -84,12 +87,12 @@ class H3Recovery:
             old=self.store(job['id']).load(binding,point['digest'])
             if new['next_step']!=old['next_step']+1 or new['next_step']!=json.loads(attempt['task'])['step_index']+1:raise StateError('CHECKPOINT_INVALID')
             for name in set(new['tensors'])-{'video_latents','audio_latents'}:
-                if not torch.equal(new['tensors'][name],old['tensors'][name]):raise StateError('CHECKPOINT_INVALID')
+                if not _same_bytes(new['tensors'][name],old['tensors'][name]):raise StateError('CHECKPOINT_INVALID')
             if any(not torch.equal(a.get_state(),b.get_state()) for (_,a),(_,b) in zip(new['generators'],old['generators'])):raise StateError('CHECKPOINT_INVALID')
             if [(role,gen.initial_seed()) for role,gen in new['generators']]!=[(role,gen.initial_seed()) for role,gen in old['generators']]:raise StateError('CHECKPOINT_INVALID')
             for name in ('video','audio'):
                 a,b=new['schedulers'][name],old['schedulers'][name]
-                if dict(a.config)!=dict(b.config) or not torch.equal(a.sigmas,b.sigmas) or not torch.equal(a.timesteps,b.timesteps):raise StateError('CHECKPOINT_INVALID')
+                if dict(a.config)!=dict(b.config) or not _same_bytes(a.sigmas,b.sigmas) or not _same_bytes(a.timesteps,b.timesteps):raise StateError('CHECKPOINT_INVALID')
             task=json.loads(attempt['task'])
             for name in ('video_latents','audio_latents'):
                 grant=self.state.db.execute('SELECT 1 FROM output_grants WHERE attempt=? AND node=? AND job=? AND epoch=? AND name=? AND digest=?',(attempt['id'],attempt['node'],job['id'],job['epoch'],name,outputs[name])).fetchone()
