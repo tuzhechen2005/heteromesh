@@ -2,8 +2,10 @@
 
 2026-10-10. Status: **incomplete draft; not ready to merge**. Scope: preserve and hand off existing H3-N01–N05 work, synchronize dependencies, and run bounded CPU checks. No new runtime behavior was implemented during recovery.
 
-Original-Agent-Author: /root/research  
-Recovery-Agent: /root/research  
+Original-Agent-Author: /root/research
+
+Recovery-Agent: /root/research
+
 Recovery-Session: a new 2026-10-10 session, distinct from the original paused author session.
 
 ## Preservation and provenance
