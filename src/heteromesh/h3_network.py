@@ -48,7 +48,25 @@ class StageExecutor:
         if type(stage_id) is not str or not stage_id or len(stage_id)>128 or type(max_boundary_bytes) is not int or max_boundary_bytes<=0:
             raise H3RuntimeError('invalid stage/boundary budget')
         self.profile_digest=profile_digest;self.stage_id=stage_id;self.role=role;self.module=module
-        self.max_boundary_bytes=max_boundary_bytes;self.schedulers=schedulers;self.condition_rows=condition_rows
+        self.max_boundary_bytes=max_boundary_bytes
+        self._scheduler_grids=None
+        self.condition_rows=tuple(condition_rows)
+        if role=='scheduler_pair':
+            if schedulers is None or len(schedulers)!=2 or len(self.condition_rows)!=2 or any(type(n) is not int or n<0 for n in self.condition_rows):
+                raise H3RuntimeError('invalid scheduler installation')
+            grids=[]
+            for scheduler in schedulers:
+                if type(scheduler) is not MiniMaxH3Scheduler or scheduler.begin_index is not None:
+                    raise H3RuntimeError('unsupported installed scheduler')
+                sigmas=scheduler.sigmas;times=scheduler.timesteps
+                if not isinstance(sigmas,torch.Tensor) or not isinstance(times,torch.Tensor) or sigmas.dtype!=torch.float32 or times.dtype!=torch.float32 or sigmas.ndim!=1 or times.ndim!=1:
+                    raise H3RuntimeError('invalid installed scheduler dtype/shape')
+                if times.numel()<1 or sigmas.numel()!=times.numel()+1 or not torch.isfinite(sigmas).all().item() or not (sigmas[1:]<sigmas[:-1]).all().item() or sigmas[-1].item()!=0 or not torch.equal(times,1-sigmas[:-1]):
+                    raise H3RuntimeError('invalid installed scheduler grid')
+                # Own immutable FP32 bytes; set_timesteps can alias a caller's CPU tensor.
+                grids.append((scheduler.shift,sigmas.detach().cpu().contiguous().numpy().tobytes()))
+            if len(grids[0][1])!=len(grids[1][1]):raise H3RuntimeError('unequal installed scheduler evaluation counts')
+            self._scheduler_grids=tuple(grids)
     def __call__(self,task,frames):
         expected={'profile_digest':self.profile_digest,'stage_id':self.stage_id}
         if task.get('parameters')!=expected or task.get('operation')!=OPERATIONS[self.role] or task.get('manifest_digest')!=self.profile_digest:
@@ -82,11 +100,11 @@ class StageExecutor:
             video,audio=self.module(**tensors);out={'video_velocity':video,'audio_velocity':audio}
         else:
             step=task.get('step_index')
-            if type(step) is not int or step<0 or self.schedulers is None:raise H3RuntimeError('invalid scheduler step')
+            if type(step) is not int or step<0 or self._scheduler_grids is None:raise H3RuntimeError('invalid scheduler step')
             pair=[]
-            for original in self.schedulers:
-                scheduler=MiniMaxH3Scheduler(shift=original.shift)
-                scheduler.set_timesteps(sigmas=original.sigmas.cpu())
+            for shift,raw in self._scheduler_grids:
+                scheduler=MiniMaxH3Scheduler(shift=shift)
+                scheduler.set_timesteps(sigmas=torch.frombuffer(bytearray(raw),dtype=torch.float32))
                 if step>=scheduler.num_inference_steps:raise H3RuntimeError('scheduler step outside installed grid')
                 scheduler._step_index=None if step==0 else step
                 pair.append(scheduler)
