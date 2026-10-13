@@ -32,9 +32,11 @@ from heteromesh.client import PinnedClient,RemoteError
 blocked=[]
 class MissingOptional(importlib.abc.MetaPathFinder):
  def find_spec(self,fullname,path=None,target=None):
-  if fullname==sys.argv[2]:
-   blocked.append(fullname)
-   raise ModuleNotFoundError('optional runtime absent',name=fullname)
+  if fullname=='heteromesh.h3_recovery':
+   # E1 import-boundary injection exercises either exact missing dependency
+   # name even in .[test] environments where neither optional package exists.
+   blocked.append(sys.argv[2])
+   raise ModuleNotFoundError('optional runtime absent',name=sys.argv[2])
 sys.meta_path.insert(0,MissingOptional())
 a=Coordinator(sys.argv[1]);a.http.handle_error=lambda *_:None
 thread=threading.Thread(target=a.serve_forever,daemon=True);thread.start()

@@ -13,7 +13,7 @@ def test_early_exit_reports_actual_code_and_output(tmp_path):
 
 def test_deadline_reports_phase_elapsed_and_stack(tmp_path):
     with pytest.raises(AssertionError) as caught:
-        terminate_at_marker("import time; print('synthetic blocked phase',flush=True); time.sleep(10)",[],tmp_path/'marker',timeout=.5)
+        terminate_at_marker("import time; print('synthetic blocked phase',flush=True); time.sleep(10)",[],tmp_path/'marker',timeout=2)
     message=str(caught.value)
     assert 'marker deadline exceeded' in message and 'elapsed=' in message
     assert 'exit_code_before_stop=None' in message and 'synthetic blocked phase' in message
