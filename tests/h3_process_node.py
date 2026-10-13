@@ -40,6 +40,11 @@ def execute(task,frames):
     result=installed[stage](task,frames)
     print(json.dumps({'pid':os.getpid(),'executed':stage,'step':task['step_index']}),flush=True)
     return result
+def input_policy(task):
+    stage=task['parameters'].get('stage_id')
+    if stage not in installed:raise ValueError('stage not installed')
+    return installed[stage].input_policy(task)
+execute.input_policy=input_policy
 worker=Worker(client,cap,{op:execute for op in ops},heartbeat_interval=1)
 while True:
     worker.run_once()

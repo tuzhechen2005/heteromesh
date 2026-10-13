@@ -10,6 +10,7 @@ from .protocol import TensorFrame, encode_tensor, decode_tensor, validate_finite
 from .h3_runtime import H3BlockRange, H3RuntimeError
 from .h3_graph import H3Prefix, H3Suffix, expected_stage_weights, step_targets
 from .weight_loader import WeightSpec, load_selected
+from .worker import InputPolicy
 
 DTYPES={'float32':torch.float32,'bfloat16':torch.bfloat16,'int64':torch.int64}
 OPERATIONS={role:'h3_'+role+'_v1' for role in ('prefix','range','suffix','scheduler_pair')}
@@ -18,6 +19,11 @@ RANGE=('hidden_states','temb','adaln_indices','rotary_cos','rotary_sin')
 SUFFIX=('hidden_states','temb','timestep_indices','video_indices','audio_indices')
 SCHEDULER=('hidden_states','audio_hidden_states','video_velocity','audio_velocity')
 INPUTS={'prefix':PREFIX,'range':RANGE,'suffix':SUFFIX,'scheduler_pair':SCHEDULER}
+INPUT_DTYPES={
+    'prefix':dict(zip(PREFIX,('float32','float32','bfloat16','float32','int64','int64','float32','int64','int64','int64'))),
+    'range':dict(zip(RANGE,('bfloat16','float32','int64','float32','float32'))),
+    'suffix':dict(zip(SUFFIX,('bfloat16','float32','int64','int64','int64'))),
+    'scheduler_pair':dict.fromkeys(SCHEDULER,'float32')}
 
 
 def tensor_to_frame(name,tensor):
@@ -67,10 +73,21 @@ class StageExecutor:
                 grids.append((scheduler.shift,sigmas.detach().cpu().contiguous().numpy().tobytes()))
             if len(grids[0][1])!=len(grids[1][1]):raise H3RuntimeError('unequal installed scheduler evaluation counts')
             self._scheduler_grids=tuple(grids)
-    def __call__(self,task,frames):
+    def _check_identity(self,task):
         expected={'profile_digest':self.profile_digest,'stage_id':self.stage_id}
         if task.get('parameters')!=expected or task.get('operation')!=OPERATIONS[self.role] or task.get('manifest_digest')!=self.profile_digest:
             raise H3RuntimeError('operation/profile is not locally installed')
+    def input_policy(self,task):
+        self._check_identity(task)
+        if type(task.get('inputs')) is not dict or set(task['inputs'])!=set(INPUTS[self.role]):raise H3RuntimeError('unexpected stage inputs')
+        if self.role=='scheduler_pair':
+            step=task.get('step_index')
+            if type(step) is not int or not 0<=step<len(self._scheduler_grids[0][1])//4-1:raise H3RuntimeError('invalid installed scheduler step')
+        limit=self.max_boundary_bytes//3
+        return InputPolicy(limit,limit-len(INPUTS[self.role])*65540,
+            tuple((name,(dtype,)) for name,dtype in INPUT_DTYPES[self.role].items()))
+    def __call__(self,task,frames):
+        self._check_identity(task)
         if set(frames)!=set(INPUTS[self.role]) or any(not isinstance(f,TensorFrame) for f in frames.values()):raise H3RuntimeError('unexpected stage inputs')
         # Include a conservative header bound and reserve both decoding and output copies.
         incoming=sum(len(f.payload)+65540 for f in frames.values())
