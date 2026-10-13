@@ -178,3 +178,58 @@ def test_expected_specs_cover_all_component_weights_exactly():
         assert dtype==str(weights[name].dtype).removeprefix('torch.')
     with pytest.raises(H3RuntimeError):expected_stage_weights(config,'range',start=2,end=2)
     with pytest.raises(H3RuntimeError):expected_stage_weights(config,'arbitrary')
+
+
+@pytest.mark.parametrize('mutation',['reset','container','storage','anchors'])
+def test_installed_scheduler_is_independent_of_caller_mutation(mutation):
+    from heteromesh.h3_network import StageExecutor, tensor_to_frame, frame_to_tensor
+    from heteromesh.protocol import decode_tensor
+    pair=[MiniMaxH3Scheduler(),MiniMaxH3Scheduler()]
+    for scheduler in pair:scheduler.set_timesteps(sigmas=[1.,.5,0.])
+    anchors=[0,0]
+    executor=StageExecutor('a'*64,'scheduler','scheduler_pair',max_boundary_bytes=16*1024*1024,
+        schedulers=pair,condition_rows=anchors)
+    task={'operation':'h3_scheduler_pair_v1','manifest_digest':'a'*64,
+        'parameters':{'profile_digest':'a'*64,'stage_id':'scheduler'},'step_index':0}
+    frames={name:decode_tensor(tensor_to_frame(name,torch.full((1,2,1),value)))
+        for name,value in [('hidden_states',0.),('audio_hidden_states',0.),('video_velocity',1.),('audio_velocity',1.)]}
+    first=executor(task,frames)
+    for name,raw in first.items():
+        torch.testing.assert_close(frame_to_tensor(name,decode_tensor(raw)),torch.full((1,2,1),.5),rtol=0,atol=0)
+    if mutation=='reset':
+        for scheduler in pair:scheduler.set_timesteps(sigmas=[1.,.25,0.])
+    elif mutation=='container':
+        replacement=MiniMaxH3Scheduler();replacement.set_timesteps(sigmas=[1.,.25,0.]);pair[:]=[replacement,replacement]
+    elif mutation=='storage':
+        for scheduler in pair:scheduler.sigmas[1]=.25
+    else:anchors[:]=[1,1]
+    assert executor(task,frames)==first
+
+
+def test_installed_distinct_scheduler_grids_keep_exact_sigma_and_cursors():
+    from heteromesh.h3_network import StageExecutor, tensor_to_frame, frame_to_tensor
+    from heteromesh.protocol import decode_tensor
+    pair=[MiniMaxH3Scheduler(shift=12),MiniMaxH3Scheduler(shift=4)]
+    grids=([1.,.1,0.],[1.,.3,0.])
+    for scheduler,grid in zip(pair,grids):scheduler.set_timesteps(sigmas=grid)
+    before=[(s.sigmas.clone(),s.timesteps.clone(),s.step_index) for s in pair]
+    executor=StageExecutor('a'*64,'scheduler','scheduler_pair',max_boundary_bytes=16*1024*1024,
+        schedulers=pair,condition_rows=[1,0])
+    latents=[torch.zeros(2,1),torch.zeros(2,1)]
+    references=[MiniMaxH3Scheduler(shift=s.shift) for s in pair]
+    for scheduler,grid in zip(references,grids):scheduler.set_timesteps(sigmas=grid)
+    for step in range(2):
+        task={'operation':'h3_scheduler_pair_v1','manifest_digest':'a'*64,
+            'parameters':{'profile_digest':'a'*64,'stage_id':'scheduler'},'step_index':step}
+        values=dict(hidden_states=latents[0][None],audio_hidden_states=latents[1][None],
+            video_velocity=torch.ones(1,2,1),audio_velocity=torch.ones(1,2,1))
+        frames={k:decode_tensor(tensor_to_frame(k,v)) for k,v in values.items()}
+        expected_v,expected_a,*references=step_targets(*references,*latents,
+            values['video_velocity'],values['audio_velocity'],1,0)
+        outputs=executor(task,frames)
+        latents=[frame_to_tensor(k,decode_tensor(outputs[k]))[0] for k in ('hidden_states','audio_hidden_states')]
+        for got,expected in zip(latents,[expected_v,expected_a]):torch.testing.assert_close(got,expected,rtol=0,atol=0)
+        assert executor(task,frames)==outputs
+    for scheduler,(sigmas,timesteps,index) in zip(pair,before):
+        assert torch.equal(scheduler.sigmas,sigmas) and torch.equal(scheduler.timesteps,timesteps)
+        assert scheduler.step_index==index
