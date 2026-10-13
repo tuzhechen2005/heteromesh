@@ -1,0 +1,31 @@
+FFF                                                                      [100%]
+=================================== FAILURES ===================================
+__ test_vcs_install_preserves_source_bytes_under_autocrlf[h3-checkpoints.yml] __
+tests/test_h3_source_install.py:23: in test_vcs_install_preserves_source_bytes_under_autocrlf
+    assert (dest/'pinned.py').read_bytes()==raw,'pip VCS clone converted pinned LF source to CRLF'
+E   AssertionError: pip VCS clone converted pinned LF source to CRLF
+E   assert b'first line\...cond line\r\n' == b'first line\nsecond line\n'
+E     
+E     At index 10 diff: b'\r' != b'\n'
+E     Use -v to get more diff
+____ test_vcs_install_preserves_source_bytes_under_autocrlf[h3-runtime.yml] ____
+tests/test_h3_source_install.py:23: in test_vcs_install_preserves_source_bytes_under_autocrlf
+    assert (dest/'pinned.py').read_bytes()==raw,'pip VCS clone converted pinned LF source to CRLF'
+E   AssertionError: pip VCS clone converted pinned LF source to CRLF
+E   assert b'first line\...cond line\r\n' == b'first line\nsecond line\n'
+E     
+E     At index 10 diff: b'\r' != b'\n'
+E     Use -v to get more diff
+__ test_vcs_install_preserves_source_bytes_under_autocrlf[weight-loader.yml] ___
+tests/test_h3_source_install.py:23: in test_vcs_install_preserves_source_bytes_under_autocrlf
+    assert (dest/'pinned.py').read_bytes()==raw,'pip VCS clone converted pinned LF source to CRLF'
+E   AssertionError: pip VCS clone converted pinned LF source to CRLF
+E   assert b'first line\...cond line\r\n' == b'first line\nsecond line\n'
+E     
+E     At index 10 diff: b'\r' != b'\n'
+E     Use -v to get more diff
+=========================== short test summary info ============================
+FAILED tests/test_h3_source_install.py::test_vcs_install_preserves_source_bytes_under_autocrlf[h3-checkpoints.yml]
+FAILED tests/test_h3_source_install.py::test_vcs_install_preserves_source_bytes_under_autocrlf[h3-runtime.yml]
+FAILED tests/test_h3_source_install.py::test_vcs_install_preserves_source_bytes_under_autocrlf[weight-loader.yml]
+3 failed in 0.11s

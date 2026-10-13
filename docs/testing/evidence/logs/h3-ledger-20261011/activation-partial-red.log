@@ -1,0 +1,10 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+______ test_restore_first_activation_rejects_concurrent_partial_progress _______
+tests/test_h3_ledger.py:398: in test_restore_first_activation_rejects_concurrent_partial_progress
+    with pytest.raises(StateError):first.result(timeout=15)
+         ^^^^^^^^^^^^^^^^^^^^^^^^^
+E   Failed: DID NOT RAISE <class 'heteromesh.state.StateError'>
+=========================== short test summary info ============================
+FAILED tests/test_h3_ledger.py::test_restore_first_activation_rejects_concurrent_partial_progress
+1 failed, 70 deselected in 2.77s

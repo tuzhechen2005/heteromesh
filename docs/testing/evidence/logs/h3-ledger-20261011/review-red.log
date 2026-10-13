@@ -1,0 +1,21 @@
+FFF                                                                      [100%]
+=================================== FAILURES ===================================
+________ test_valid_foreign_snapshot_not_authorized[foreign_rng_state] _________
+tests/test_h3_ledger.py:319: in test_valid_foreign_snapshot_not_authorized
+    with pytest.raises((StateError,ValueError)):
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   Failed: DID NOT RAISE any of (<class 'heteromesh.state.StateError'>, <class 'ValueError'>)
+_______________ test_older_restore_cannot_replace_newer_runtime ________________
+tests/test_h3_ledger.py:375: in test_older_restore_cannot_replace_newer_runtime
+    with pytest.raises(StateError):first.result(timeout=15)
+         ^^^^^^^^^^^^^^^^^^^^^^^^^
+E   Failed: DID NOT RAISE <class 'heteromesh.state.StateError'>
+___________________ test_lazy_adapter_creation_is_singleton ____________________
+tests/test_h3_ledger.py:391: in test_lazy_adapter_creation_is_singleton
+    assert adapters[0] is adapters[1] is a.state.h3_commit.__self__
+E   assert <heteromesh.h3_recovery.H3Recovery object at 0x7fe12171d3d0> is <heteromesh.h3_recovery.H3Recovery object at 0x7fe12171f1a0>
+=========================== short test summary info ============================
+FAILED tests/test_h3_ledger.py::test_valid_foreign_snapshot_not_authorized[foreign_rng_state]
+FAILED tests/test_h3_ledger.py::test_older_restore_cannot_replace_newer_runtime
+FAILED tests/test_h3_ledger.py::test_lazy_adapter_creation_is_singleton - ass...
+3 failed, 54 deselected in 3.23s

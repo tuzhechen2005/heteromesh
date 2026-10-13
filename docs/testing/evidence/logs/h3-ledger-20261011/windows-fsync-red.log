@@ -1,0 +1,16 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+______________ test_existing_blob_fsync_uses_writable_descriptor _______________
+tests/test_h3_ledger.py:503: in test_existing_blob_fsync_uses_writable_descriptor
+    assert store._put('blobs',raw)==sha
+           ^^^^^^^^^^^^^^^^^^^^^^^
+src/heteromesh/h3_checkpoints.py:159: in _put
+    require(stream.read()==raw,'existing checkpoint blob corrupted');os.fsync(stream.fileno())
+                                                                     ^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_h3_ledger.py:500: in sync
+    if modes.pop(fd,None)=='rb':raise OSError(9,'Windows CRT rejects fsync on read-only file')
+                                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   OSError: [Errno 9] Windows CRT rejects fsync on read-only file
+=========================== short test summary info ============================
+FAILED tests/test_h3_ledger.py::test_existing_blob_fsync_uses_writable_descriptor
+1 failed, 63 deselected in 2.62s
