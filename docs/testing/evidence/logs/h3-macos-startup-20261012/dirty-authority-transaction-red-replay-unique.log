@@ -1,0 +1,69 @@
+FFF                                                                      [100%]
+=================================== FAILURES ===================================
+_________ test_adapter_reads_wait_for_other_thread_transaction[store] __________
+tests/test_h3_ledger.py:399: in test_adapter_reads_wait_for_other_thread_transaction
+    with pytest.raises(TimeoutError):pending.result(timeout=.2)
+                                     ^^^^^^^^^^^^^^^^^^^^^^^^^^
+/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/concurrent/futures/_base.py:449: in result
+    return self.__get_result()
+           ^^^^^^^^^^^^^^^^^^^
+/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/concurrent/futures/_base.py:401: in __get_result
+    raise self._exception
+/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/concurrent/futures/thread.py:59: in run
+    result = self.fn(*self.args, **self.kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_h3_ledger.py:391: in read
+    if reader=='store':return adapter.store(j)
+                              ^^^^^^^^^^^^^^^^
+../recovery-concurrency-red-replay/src/heteromesh/h3_recovery.py:37: in store
+    self.state._job(job)
+../recovery-concurrency-red-replay/src/heteromesh/state.py:117: in _job
+    if row is None: raise StateError('NOT_FOUND')
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   heteromesh.state.StateError: NOT_FOUND
+_______ test_adapter_reads_wait_for_other_thread_transaction[initialize] _______
+tests/test_h3_ledger.py:399: in test_adapter_reads_wait_for_other_thread_transaction
+    with pytest.raises(TimeoutError):pending.result(timeout=.2)
+                                     ^^^^^^^^^^^^^^^^^^^^^^^^^^
+/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/concurrent/futures/_base.py:456: in result
+    return self.__get_result()
+           ^^^^^^^^^^^^^^^^^^^
+/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/concurrent/futures/_base.py:401: in __get_result
+    raise self._exception
+/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/concurrent/futures/thread.py:59: in run
+    result = self.fn(*self.args, **self.kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_h3_ledger.py:393: in read
+    return adapter.initialize(j,b,t,s,g)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../recovery-concurrency-red-replay/src/heteromesh/h3_recovery.py:47: in initialize
+    request=json.loads(self.state._job(job)['request']);tasks=request['tasks']
+                       ^^^^^^^^^^^^^^^^^^^^
+../recovery-concurrency-red-replay/src/heteromesh/state.py:117: in _job
+    if row is None: raise StateError('NOT_FOUND')
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   heteromesh.state.StateError: NOT_FOUND
+_________ test_adapter_reads_wait_for_other_thread_transaction[point] __________
+tests/test_h3_ledger.py:399: in test_adapter_reads_wait_for_other_thread_transaction
+    with pytest.raises(TimeoutError):pending.result(timeout=.2)
+                                     ^^^^^^^^^^^^^^^^^^^^^^^^^^
+/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/concurrent/futures/_base.py:449: in result
+    return self.__get_result()
+           ^^^^^^^^^^^^^^^^^^^
+/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/concurrent/futures/_base.py:401: in __get_result
+    raise self._exception
+/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/concurrent/futures/thread.py:59: in run
+    result = self.fn(*self.args, **self.kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_h3_ledger.py:392: in read
+    if reader=='point':return adapter.point(j)
+                              ^^^^^^^^^^^^^^^^
+../recovery-concurrency-red-replay/src/heteromesh/h3_recovery.py:43: in point
+    if row is None:raise StateError('CHECKPOINT_REQUIRED')
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   heteromesh.state.StateError: CHECKPOINT_REQUIRED
+=========================== short test summary info ============================
+FAILED tests/test_h3_ledger.py::test_adapter_reads_wait_for_other_thread_transaction[store]
+FAILED tests/test_h3_ledger.py::test_adapter_reads_wait_for_other_thread_transaction[initialize]
+FAILED tests/test_h3_ledger.py::test_adapter_reads_wait_for_other_thread_transaction[point]
+3 failed, 72 deselected in 15.78s

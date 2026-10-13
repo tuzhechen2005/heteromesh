@@ -1,0 +1,16 @@
+FF                                                                       [100%]
+=================================== FAILURES ===================================
+___________ test_valid_foreign_snapshot_not_authorized[anchor_zero] ____________
+tests/test_h3_ledger.py:321: in test_valid_foreign_snapshot_not_authorized
+    with pytest.raises((StateError,ValueError)):
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   Failed: DID NOT RAISE any of (<class 'heteromesh.state.StateError'>, <class 'ValueError'>)
+____________ test_valid_foreign_snapshot_not_authorized[sigma_zero] ____________
+tests/test_h3_ledger.py:321: in test_valid_foreign_snapshot_not_authorized
+    with pytest.raises((StateError,ValueError)):
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   Failed: DID NOT RAISE any of (<class 'heteromesh.state.StateError'>, <class 'ValueError'>)
+=========================== short test summary info ============================
+FAILED tests/test_h3_ledger.py::test_valid_foreign_snapshot_not_authorized[anchor_zero]
+FAILED tests/test_h3_ledger.py::test_valid_foreign_snapshot_not_authorized[sigma_zero]
+2 failed, 67 deselected in 2.87s

@@ -1,0 +1,33 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+______________ test_concurrent_same_restore_request_is_one_epoch _______________
+tests/test_h3_ledger.py:352: in test_concurrent_same_restore_request_is_one_epoch
+    results=list(pool.map(lambda _:a.restore_h3(j,request_id='r',expected_epoch=0),range(2)))
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/concurrent/futures/_base.py:619: in result_iterator
+    yield _result_or_cancel(fs.pop())
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/concurrent/futures/_base.py:317: in _result_or_cancel
+    return fut.result(timeout)
+           ^^^^^^^^^^^^^^^^^^^
+/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/concurrent/futures/_base.py:456: in result
+    return self.__get_result()
+           ^^^^^^^^^^^^^^^^^^^
+/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/concurrent/futures/_base.py:401: in __get_result
+    raise self._exception
+/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/concurrent/futures/thread.py:59: in run
+    result = self.fn(*self.args, **self.kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_h3_ledger.py:352: in <lambda>
+    results=list(pool.map(lambda _:a.restore_h3(j,request_id='r',expected_epoch=0),range(2)))
+                                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+src/heteromesh/service.py:93: in restore_h3
+    def restore_h3(self,*args,**kwargs):return self.h3.restore(*args,**kwargs)
+                                               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+src/heteromesh/h3_recovery.py:136: in restore
+    if row['epoch']!=expected_epoch or current['digest']!=original_digest or row['state'] in ('cancelled','failed'):raise StateError('CONFLICT')
+                                                                                                                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   heteromesh.state.StateError: CONFLICT
+=========================== short test summary info ============================
+FAILED tests/test_h3_ledger.py::test_concurrent_same_restore_request_is_one_epoch
+1 failed, 53 deselected in 3.14s

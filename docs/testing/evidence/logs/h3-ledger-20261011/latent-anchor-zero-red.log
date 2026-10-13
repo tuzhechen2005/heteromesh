@@ -1,0 +1,10 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+________ test_valid_foreign_snapshot_not_authorized[latent_anchor_zero] ________
+tests/test_h3_ledger.py:322: in test_valid_foreign_snapshot_not_authorized
+    with pytest.raises((StateError,ValueError)):
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   Failed: DID NOT RAISE any of (<class 'heteromesh.state.StateError'>, <class 'ValueError'>)
+=========================== short test summary info ============================
+FAILED tests/test_h3_ledger.py::test_valid_foreign_snapshot_not_authorized[latent_anchor_zero]
+1 failed, 69 deselected in 2.60s

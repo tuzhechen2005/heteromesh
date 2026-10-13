@@ -1,0 +1,10 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+___________ test_permanent_revocation_fences_commit_and_future_lease ___________
+tests/test_h3_ledger.py:340: in test_permanent_revocation_fences_commit_and_future_lease
+    a.state.revoke_node('pc');before=authority(a,j)
+    ^^^^^^^^^^^^^^^^^^^
+E   AttributeError: 'StateStore' object has no attribute 'revoke_node'
+=========================== short test summary info ============================
+FAILED tests/test_h3_ledger.py::test_permanent_revocation_fences_commit_and_future_lease
+1 failed, 52 deselected in 2.83s

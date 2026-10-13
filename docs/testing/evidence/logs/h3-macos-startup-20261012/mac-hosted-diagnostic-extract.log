@@ -1,0 +1,65 @@
+2026-10-13T01:24:57.2985930Z {"stage": "python_started", "elapsed_seconds": 1e-06}
+2026-10-13T01:24:57.5224680Z {"stage": "service_imported", "elapsed_seconds": 0.223849}
+2026-10-13T01:24:57.5231770Z {"stage": "fresh_coordinator_begin", "elapsed_seconds": 0.224607}
+2026-10-13T01:24:57.5232180Z {"stage": "create_identity_begin", "elapsed_seconds": 0.224703}
+2026-10-13T01:24:57.7029310Z {"stage": "create_identity_end", "elapsed_seconds": 0.404317}
+2026-10-13T01:24:57.7030240Z {"stage": "StateStore_begin", "elapsed_seconds": 0.404391}
+2026-10-13T01:24:57.7102980Z {"stage": "StateStore_end", "elapsed_seconds": 0.41169}
+2026-10-13T01:24:57.7104020Z {"stage": "SecurityStore_begin", "elapsed_seconds": 0.411922}
+2026-10-13T01:24:57.7122130Z {"stage": "SecurityStore_end", "elapsed_seconds": 0.413633}
+2026-10-13T01:24:57.7123670Z {"stage": "ThreadingHTTPServer_begin", "elapsed_seconds": 0.413884}
+2026-10-13T01:24:57.7124890Z {"stage": "getfqdn_begin", "elapsed_seconds": 0.414016}
+2026-10-13T01:25:07.3291710Z Timeout (0:00:10)!
+2026-10-13T01:25:07.3292360Z Thread 0x00000001fb3aa180 (most recent call first):
+2026-10-13T01:25:07.3293640Z   File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/socket.py", line 808 in getfqdn
+2026-10-13T01:25:07.3294430Z   File "/Users/runner/work/heteromesh/heteromesh/tools/diagnose_coordinator_startup.py", line 21 in call
+2026-10-13T01:25:07.3295370Z   File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/http/server.py", line 138 in server_bind
+2026-10-13T01:25:07.3296270Z   File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/socketserver.py", line 457 in __init__
+2026-10-13T01:25:07.3296980Z   File "/Users/runner/work/heteromesh/heteromesh/tools/diagnose_coordinator_startup.py", line 21 in call
+2026-10-13T01:25:07.3297930Z   File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/heteromesh/service.py", line 75 in __init__
+2026-10-13T01:25:07.3298680Z   File "/Users/runner/work/heteromesh/heteromesh/tools/diagnose_coordinator_startup.py", line 32 in main
+2026-10-13T01:25:07.3299430Z   File "/Users/runner/work/heteromesh/heteromesh/tools/diagnose_coordinator_startup.py", line 40 in <module>
+2026-10-13T01:25:07.3299940Z   File "<frozen runpy>", line 88 in _run_code
+2026-10-13T01:25:07.3300360Z   File "<frozen runpy>", line 198 in _run_module_as_main
+2026-10-13T01:25:17.3468550Z Timeout (0:00:10)!
+2026-10-13T01:25:17.3469130Z Thread 0x00000001fb3aa180 (most recent call first):
+2026-10-13T01:25:17.3470690Z   File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/socket.py", line 808 in getfqdn
+2026-10-13T01:25:17.3471590Z   File "/Users/runner/work/heteromesh/heteromesh/tools/diagnose_coordinator_startup.py", line 21 in call
+2026-10-13T01:25:17.3472360Z   File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/http/server.py", line 138 in server_bind
+2026-10-13T01:25:17.3473310Z   File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/socketserver.py", line 457 in __init__
+2026-10-13T01:25:17.3474260Z   File "/Users/runner/work/heteromesh/heteromesh/tools/diagnose_coordinator_startup.py", line 21 in call
+2026-10-13T01:25:17.3476140Z   File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/heteromesh/service.py", line 75 in __init__
+2026-10-13T01:25:17.3476980Z   File "/Users/runner/work/heteromesh/heteromesh/tools/diagnose_coordinator_startup.py", line 32 in main
+2026-10-13T01:25:17.3477750Z   File "/Users/runner/work/heteromesh/heteromesh/tools/diagnose_coordinator_startup.py", line 40 in <module>
+2026-10-13T01:25:17.3478320Z   File "<frozen runpy>", line 88 in _run_code
+2026-10-13T01:25:17.3479130Z   File "<frozen runpy>", line 198 in _run_module_as_main
+2026-10-13T01:25:27.3537740Z Timeout (0:00:10)!
+2026-10-13T01:25:27.3538470Z Thread 0x00000001fb3aa180 (most recent call first):
+2026-10-13T01:25:27.3540300Z   File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/socket.py", line 808 in getfqdn
+2026-10-13T01:25:27.3542170Z   File "/Users/runner/work/heteromesh/heteromesh/tools/diagnose_coordinator_startup.py", line 21 in call
+2026-10-13T01:25:27.3544160Z   File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/http/server.py", line 138 in server_bind
+2026-10-13T01:25:27.3546420Z   File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/socketserver.py", line 457 in __init__
+2026-10-13T01:25:27.3548250Z   File "/Users/runner/work/heteromesh/heteromesh/tools/diagnose_coordinator_startup.py", line 21 in call
+2026-10-13T01:25:27.3550310Z   File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/heteromesh/service.py", line 75 in __init__
+2026-10-13T01:25:27.3552260Z   File "/Users/runner/work/heteromesh/heteromesh/tools/diagnose_coordinator_startup.py", line 32 in main
+2026-10-13T01:25:27.3554250Z   File "/Users/runner/work/heteromesh/heteromesh/tools/diagnose_coordinator_startup.py", line 40 in <module>
+2026-10-13T01:25:27.3555720Z   File "<frozen runpy>", line 88 in _run_code
+2026-10-13T01:25:27.3556590Z   File "<frozen runpy>", line 198 in _run_module_as_main
+2026-10-13T01:25:32.7181860Z {"stage": "getfqdn_end", "elapsed_seconds": 35.418999}
+2026-10-13T01:25:32.7185730Z {"stage": "ThreadingHTTPServer_end", "elapsed_seconds": 35.42001}
+2026-10-13T01:25:32.7255470Z {"stage": "fresh_coordinator_ready", "elapsed_seconds": 35.426903}
+2026-10-13T01:25:32.7305340Z {"stage": "fresh_coordinator_closed", "elapsed_seconds": 35.431858}
+2026-10-13T01:25:32.7308310Z {"stage": "reopen_coordinator_begin", "elapsed_seconds": 35.43191}
+2026-10-13T01:25:32.7314850Z {"stage": "create_identity_begin", "elapsed_seconds": 35.432964}
+2026-10-13T01:25:32.7326470Z {"stage": "create_identity_end", "elapsed_seconds": 35.43404}
+2026-10-13T01:25:32.7327070Z {"stage": "StateStore_begin", "elapsed_seconds": 35.434058}
+2026-10-13T01:25:32.7344290Z {"stage": "StateStore_end", "elapsed_seconds": 35.435885}
+2026-10-13T01:25:32.7344780Z {"stage": "SecurityStore_begin", "elapsed_seconds": 35.435928}
+2026-10-13T01:25:32.7347550Z {"stage": "SecurityStore_end", "elapsed_seconds": 35.436274}
+2026-10-13T01:25:32.7349160Z {"stage": "ThreadingHTTPServer_begin", "elapsed_seconds": 35.436422}
+2026-10-13T01:25:32.7350680Z {"stage": "getfqdn_begin", "elapsed_seconds": 35.436575}
+2026-10-13T01:25:32.7351200Z {"stage": "getfqdn_end", "elapsed_seconds": 35.436623}
+2026-10-13T01:25:32.7351570Z {"stage": "ThreadingHTTPServer_end", "elapsed_seconds": 35.43664}
+2026-10-13T01:25:32.7358580Z {"stage": "reopen_coordinator_ready", "elapsed_seconds": 35.437376}
+2026-10-13T01:25:32.7366890Z {"stage": "reopen_coordinator_closed", "elapsed_seconds": 35.438154}
+2026-10-13T01:25:32.7379520Z {"stage": "complete", "elapsed_seconds": 35.439413}
