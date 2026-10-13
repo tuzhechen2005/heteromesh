@@ -11,6 +11,7 @@ import struct
 import numpy as np
 import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from socketserver import TCPServer
 from pathlib import Path
 from .state import StateStore, StateError
 from .security import SecurityStore, SecurityError, create_identity
@@ -19,6 +20,13 @@ from .manifests import validate_capabilities as validate_node_capabilities
 
 MAX_CONTROL=65536
 MAX_ARTIFACT=256*1024*1024+65540
+
+class _CoordinatorHTTPServer(ThreadingHTTPServer):
+    def server_bind(self):
+        # HTTPServer's reverse DNS is only descriptive metadata. TLS identity
+        # comes from the pinned certificate; binding must not wait for PTR DNS.
+        TCPServer.server_bind(self)
+        self.server_name,self.server_port=self.server_address[:2]
 
 def sync_directory(path):
     """Persist published directory entries on POSIX; Windows has a documented weaker guarantee."""
@@ -72,7 +80,7 @@ class Coordinator:
                 except (ProtocolError,ValueError,TypeError,KeyError): self.reply(400,{'error':{'code':'INVALID_REQUEST','message':'INVALID_REQUEST','retryable':False}})
                 except (ConnectionError,TimeoutError): self.close_connection=True
                 except OSError: self.reply(503,{'error':{'code':'STORAGE_UNAVAILABLE','message':'Storage operation failed','retryable':False}})
-        self.http=ThreadingHTTPServer((host,port),Handler)
+        self.http=_CoordinatorHTTPServer((host,port),Handler)
         context=ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER); context.minimum_version=ssl.TLSVersion.TLSv1_2
         context.load_cert_chain(self.identity['cert'],self.identity['key'])
         self.http.socket=context.wrap_socket(self.http.socket,server_side=True)

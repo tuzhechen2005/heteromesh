@@ -6,6 +6,22 @@ from pathlib import Path
 from heteromesh.service import Coordinator
 from heteromesh.client import PinnedClient, RemoteError
 from heteromesh.protocol import encode_tensor
+from unittest.mock import patch
+
+
+class CoordinatorStartupTests(unittest.TestCase):
+    def test_binding_does_not_require_reverse_dns(self):
+        for host in ('127.0.0.1','localhost'):
+            with self.subTest(host=host),tempfile.TemporaryDirectory() as root:
+                with patch('socket.getfqdn',side_effect=RuntimeError('reverse DNS unavailable')):
+                    app=Coordinator(root,host=host)
+                thread=threading.Thread(target=app.serve_forever,daemon=True);thread.start()
+                try:
+                    assert app.http.server_name==app.http.server_address[0]
+                    assert app.port==app.http.server_address[1]>0
+                    client=PinnedClient('127.0.0.1',app.port,app.identity['fingerprint'],token=app.identity['admin_token'])
+                    assert client.request('GET','/v1/nodes')['nodes']==[]
+                finally:app.shutdown();thread.join();app.close()
 
 class ServiceTests(unittest.TestCase):
     def setUp(self):

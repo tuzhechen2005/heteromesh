@@ -9,6 +9,7 @@ import subprocess
 import sys
 import threading
 import pytest
+from _crash_probe import terminate_at_marker
 
 torch=pytest.importorskip('torch')
 pytest.importorskip('diffusers')
@@ -165,22 +166,20 @@ def test_actual_kill_commit_reopen(tmp_path,point):
     a,j,b,t,s,g=fixture(tmp_path);install(a,j,b,t,s,g);a.close()
     marker=tmp_path/'reached'
     code='''import runpy,sys,time
-ns=runpy.run_path(sys.argv[1]);a,j,b,t,s,g=ns['fixture'](sys.argv[2]);point=sys.argv[3]
+sys.path.insert(0,str(Path(sys.argv[1]).parent))
+probe_stage('fixture_import_begin')
+ns=runpy.run_path(sys.argv[1]);probe_stage('fixture_import_end');probe_module('heteromesh.service')
+probe_stage('fixture_create_begin');a,j,b,t,s,g=ns['fixture'](sys.argv[2]);probe_stage('fixture_create_end');point=sys.argv[3]
 def stop(stage):
  if stage==point:
   ns['Path'](sys.argv[4]).write_text('ready')
   while True:time.sleep(.1)
 a.restore_h3(j,request_id='child-open',expected_epoch=0)
+probe_stage('initial_restore_end')
 a.h3._fault=stop;a.h3.store(j)._fault=stop
 ns['finish'](a,j,t,s,g)
 '''
-    p=subprocess.Popen([sys.executable,'-c',code,str(Path(__file__).resolve()),str(tmp_path),point,str(marker)],stdout=subprocess.PIPE,stderr=subprocess.PIPE)
-    import time
-    deadline=time.monotonic()+45
-    while not marker.exists() and p.poll() is None and time.monotonic()<deadline:time.sleep(.02)
-    if not marker.exists():
-        p.kill();_,err=p.communicate();pytest.fail(err.decode())
-    p.terminate();p.communicate(timeout=10)
+    terminate_at_marker(code,[Path(__file__).resolve(),tmp_path,point,marker],marker,timeout=45)
     a=Coordinator(tmp_path)
     try:
         r=a.restore_h3(j,request_id='r',expected_epoch=1)
@@ -192,21 +191,20 @@ def test_actual_kill_restore_retry(tmp_path,point):
     a,j,b,t,s,g=fixture(tmp_path);install(a,j,b,t,s,g);t,s,*_=finish(a,j,t,s,g);a.close()
     marker=tmp_path/'reached'
     code='''import runpy,sys,time
-ns=runpy.run_path(sys.argv[1]);a,j,b,t,s,g=ns['fixture'](sys.argv[2]);point=sys.argv[3]
+sys.path.insert(0,str(Path(sys.argv[1]).parent))
+probe_stage('fixture_import_begin')
+ns=runpy.run_path(sys.argv[1]);probe_stage('fixture_import_end');probe_module('heteromesh.service')
+probe_stage('fixture_create_begin');a,j,b,t,s,g=ns['fixture'](sys.argv[2]);probe_stage('fixture_create_end');point=sys.argv[3]
 def stop(stage):
  if stage==point:
   ns['Path'](sys.argv[4]).write_text('ready')
   while True:time.sleep(.1)
 a.h3._fault=stop;a.h3.store(j)._fault=stop
+probe_stage('restore_begin')
 a.restore_h3(j,request_id='recover',expected_epoch=0)
 '''
-    p=subprocess.Popen([sys.executable,'-c',code,str(Path(__file__).resolve()),str(tmp_path),point,str(marker)],stdout=subprocess.PIPE,stderr=subprocess.PIPE)
-    import time
-    deadline=time.monotonic()+30
-    while not marker.exists() and p.poll() is None and time.monotonic()<deadline:time.sleep(.02)
-    if not marker.exists():
-        p.kill();_,err=p.communicate();pytest.fail(err.decode())
-    p.terminate();p.communicate(timeout=10);a=Coordinator(tmp_path)
+    terminate_at_marker(code,[Path(__file__).resolve(),tmp_path,point,marker],marker,timeout=30)
+    a=Coordinator(tmp_path)
     try:
         r=a.restore_h3(j,request_id='recover',expected_epoch=0)
         assert r['next_step']==1 and r['binding']['recovery_epoch']==1
@@ -491,19 +489,16 @@ def test_coordinator_revocation_crash_fences_both_databases_and_http(tmp_path):
     script='''import sys,time
 from pathlib import Path
 from heteromesh.service import Coordinator
-a=Coordinator(sys.argv[1]);node=a.security.nodes()[0]['node_id']
+probe_stage('service_imported');probe_module('heteromesh.service')
+probe_stage('coordinator_begin');a=Coordinator(sys.argv[1]);probe_stage('coordinator_ready');node=a.security.nodes()[0]['node_id']
 def stop(node):
  Path(sys.argv[2]).write_text('ready')
  while True:time.sleep(.1)
 a.security.revoke=stop
+probe_stage('revocation_begin')
 a.revoke_node(node)
 '''
-    p=subprocess.Popen([sys.executable,'-c',script,str(tmp_path),str(marker)],stdout=subprocess.PIPE,stderr=subprocess.PIPE)
-    import time
-    deadline=time.monotonic()+30
-    while not marker.exists() and p.poll() is None and time.monotonic()<deadline:time.sleep(.02)
-    if not marker.exists():p.kill();_,err=p.communicate();pytest.fail(err.decode())
-    p.terminate();p.communicate(timeout=10)
+    terminate_at_marker(script,[tmp_path,marker],marker,timeout=30)
     a=Coordinator(tmp_path);thread=threading.Thread(target=a.serve_forever,daemon=True);thread.start()
     worker=PinnedClient('127.0.0.1',a.port,a.identity['fingerprint'],token=node['token'])
     try:
