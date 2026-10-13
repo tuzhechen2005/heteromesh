@@ -28,7 +28,14 @@ def test_marker_is_actually_terminated_without_pipe_backpressure(tmp_path):
     assert 'x'*100000 in report
 
 
-def test_marker_followed_by_natural_failure_is_not_termination(tmp_path):
+def test_marker_followed_by_natural_failure_is_not_termination(tmp_path,monkeypatch):
+    import _crash_probe
+    original=_crash_probe.subprocess.Popen
+    def exited_before_observation(*args,**kwargs):
+        child=original(*args,**kwargs);child.wait(timeout=2);return child
+    # A real child exits naturally before the helper can observe its marker;
+    # do not race genuine SIGTERM against the child's sys.exit instruction.
+    monkeypatch.setattr(_crash_probe.subprocess,'Popen',exited_before_observation)
     marker=tmp_path/'marker'
     with pytest.raises(AssertionError,match='child exited before termination'):
         terminate_at_marker("Path(sys.argv[1]).write_text('ready'); sys.exit(7)",[marker],marker,timeout=2)
