@@ -9,6 +9,18 @@ concurrency:
 permissions:
   contents: read
 jobs:
+  coordinator-startup-diagnostic:
+    runs-on: macos-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install small coordinator dependencies only
+        run: python -m pip install '.[test]'
+      - name: Measure unchanged constructor with live ten-second stack reports
+        run: python -m tools.diagnose_coordinator_startup
   h3-checkpoint:
     strategy:
       fail-fast: false
