@@ -1,0 +1,26 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+______ CoordinatorStartupTests.test_binding_does_not_require_reverse_dns _______
+tests/test_service.py:17: in test_binding_does_not_require_reverse_dns
+    app=Coordinator(root,host=host)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+src/heteromesh/service.py:75: in __init__
+    self.http=ThreadingHTTPServer((host,port),Handler)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/socketserver.py:457: in __init__
+    self.server_bind()
+/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/http/server.py:142: in server_bind
+    self.server_name = socket.getfqdn(host)
+                       ^^^^^^^^^^^^^^^^^^^^
+/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/unittest/mock.py:1139: in __call__
+    return self._mock_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/unittest/mock.py:1143: in _mock_call
+    return self._execute_mock_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/unittest/mock.py:1198: in _execute_mock_call
+    raise effect
+E   RuntimeError: reverse DNS unavailable
+=========================== short test summary info ============================
+FAILED tests/test_service.py::CoordinatorStartupTests::test_binding_does_not_require_reverse_dns
+1 failed, 8 deselected in 1.11s

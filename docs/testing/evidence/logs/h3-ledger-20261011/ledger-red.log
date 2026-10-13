@@ -1,0 +1,255 @@
+FFFFFFFFFFFFFFFFFFFFFFFFFFFF                                             [100%]
+=================================== FAILURES ===================================
+_________________ test_no_initial_lease_or_plain_result_bypass _________________
+tests/test_h3_ledger.py:59: in test_no_initial_lease_or_plain_result_bypass
+    assert a.state.lease('pc') is None
+E   AssertionError: assert {'attempt_id': '1294046336f5e594da864476ce673b10', 'deadline': 1791685781, 'fragment_id': 'scheduler', 'input_digest': '44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a', ...} is None
+E    +  where {'attempt_id': '1294046336f5e594da864476ce673b10', 'deadline': 1791685781, 'fragment_id': 'scheduler', 'input_digest': '44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a', ...} = lease('pc')
+E    +    where lease = <heteromesh.state.StateStore object at 0x7fa0c71a9d00>.lease
+E    +      where <heteromesh.state.StateStore object at 0x7fa0c71a9d00> = <heteromesh.service.Coordinator object at 0x7fa0c68db590>.state
+______________________ test_full_state_every_boundary[0] _______________________
+tests/test_h3_ledger.py:68: in test_full_state_every_boundary
+    a,j,b,t,s,g=fixture(tmp_path);install(a,j,b,t,s,g)
+                                  ^^^^^^^^^^^^^^^^^^^^
+tests/test_h3_ledger.py:34: in install
+    return app.initialize_h3(job,b,t,s,g)
+           ^^^^^^^^^^^^^^^^^
+E   AttributeError: 'Coordinator' object has no attribute 'initialize_h3'
+______________________ test_full_state_every_boundary[1] _______________________
+tests/test_h3_ledger.py:68: in test_full_state_every_boundary
+    a,j,b,t,s,g=fixture(tmp_path);install(a,j,b,t,s,g)
+                                  ^^^^^^^^^^^^^^^^^^^^
+tests/test_h3_ledger.py:34: in install
+    return app.initialize_h3(job,b,t,s,g)
+           ^^^^^^^^^^^^^^^^^
+E   AttributeError: 'Coordinator' object has no attribute 'initialize_h3'
+______________________ test_full_state_every_boundary[2] _______________________
+tests/test_h3_ledger.py:68: in test_full_state_every_boundary
+    a,j,b,t,s,g=fixture(tmp_path);install(a,j,b,t,s,g)
+                                  ^^^^^^^^^^^^^^^^^^^^
+tests/test_h3_ledger.py:34: in install
+    return app.initialize_h3(job,b,t,s,g)
+           ^^^^^^^^^^^^^^^^^
+E   AttributeError: 'Coordinator' object has no attribute 'initialize_h3'
+______________________ test_full_state_every_boundary[3] _______________________
+tests/test_h3_ledger.py:68: in test_full_state_every_boundary
+    a,j,b,t,s,g=fixture(tmp_path);install(a,j,b,t,s,g)
+                                  ^^^^^^^^^^^^^^^^^^^^
+tests/test_h3_ledger.py:34: in install
+    return app.initialize_h3(job,b,t,s,g)
+           ^^^^^^^^^^^^^^^^^
+E   AttributeError: 'Coordinator' object has no attribute 'initialize_h3'
+________________ test_invalid_snapshot_does_not_commit[missing] ________________
+tests/test_h3_ledger.py:88: in test_invalid_snapshot_does_not_commit
+    a,j,b,t,s,g=fixture(tmp_path);install(a,j,b,t,s,g)
+                                  ^^^^^^^^^^^^^^^^^^^^
+tests/test_h3_ledger.py:34: in install
+    return app.initialize_h3(job,b,t,s,g)
+           ^^^^^^^^^^^^^^^^^
+E   AttributeError: 'Coordinator' object has no attribute 'initialize_h3'
+_______________ test_invalid_snapshot_does_not_commit[truncated] _______________
+tests/test_h3_ledger.py:88: in test_invalid_snapshot_does_not_commit
+    a,j,b,t,s,g=fixture(tmp_path);install(a,j,b,t,s,g)
+                                  ^^^^^^^^^^^^^^^^^^^^
+tests/test_h3_ledger.py:34: in install
+    return app.initialize_h3(job,b,t,s,g)
+           ^^^^^^^^^^^^^^^^^
+E   AttributeError: 'Coordinator' object has no attribute 'initialize_h3'
+_______________ test_invalid_snapshot_does_not_commit[manifest] ________________
+tests/test_h3_ledger.py:88: in test_invalid_snapshot_does_not_commit
+    a,j,b,t,s,g=fixture(tmp_path);install(a,j,b,t,s,g)
+                                  ^^^^^^^^^^^^^^^^^^^^
+tests/test_h3_ledger.py:34: in install
+    return app.initialize_h3(job,b,t,s,g)
+           ^^^^^^^^^^^^^^^^^
+E   AttributeError: 'Coordinator' object has no attribute 'initialize_h3'
+________________ test_invalid_snapshot_does_not_commit[profile] ________________
+tests/test_h3_ledger.py:88: in test_invalid_snapshot_does_not_commit
+    a,j,b,t,s,g=fixture(tmp_path);install(a,j,b,t,s,g)
+                                  ^^^^^^^^^^^^^^^^^^^^
+tests/test_h3_ledger.py:34: in install
+    return app.initialize_h3(job,b,t,s,g)
+           ^^^^^^^^^^^^^^^^^
+E   AttributeError: 'Coordinator' object has no attribute 'initialize_h3'
+__________________ test_invalid_snapshot_does_not_commit[job] __________________
+tests/test_h3_ledger.py:88: in test_invalid_snapshot_does_not_commit
+    a,j,b,t,s,g=fixture(tmp_path);install(a,j,b,t,s,g)
+                                  ^^^^^^^^^^^^^^^^^^^^
+tests/test_h3_ledger.py:34: in install
+    return app.initialize_h3(job,b,t,s,g)
+           ^^^^^^^^^^^^^^^^^
+E   AttributeError: 'Coordinator' object has no attribute 'initialize_h3'
+________________ test_invalid_snapshot_does_not_commit[layout] _________________
+tests/test_h3_ledger.py:88: in test_invalid_snapshot_does_not_commit
+    a,j,b,t,s,g=fixture(tmp_path);install(a,j,b,t,s,g)
+                                  ^^^^^^^^^^^^^^^^^^^^
+tests/test_h3_ledger.py:34: in install
+    return app.initialize_h3(job,b,t,s,g)
+           ^^^^^^^^^^^^^^^^^
+E   AttributeError: 'Coordinator' object has no attribute 'initialize_h3'
+_________________ test_invalid_snapshot_does_not_commit[step] __________________
+tests/test_h3_ledger.py:88: in test_invalid_snapshot_does_not_commit
+    a,j,b,t,s,g=fixture(tmp_path);install(a,j,b,t,s,g)
+                                  ^^^^^^^^^^^^^^^^^^^^
+tests/test_h3_ledger.py:34: in install
+    return app.initialize_h3(job,b,t,s,g)
+           ^^^^^^^^^^^^^^^^^
+E   AttributeError: 'Coordinator' object has no attribute 'initialize_h3'
+_________________ test_invalid_snapshot_does_not_commit[mixed] _________________
+tests/test_h3_ledger.py:88: in test_invalid_snapshot_does_not_commit
+    a,j,b,t,s,g=fixture(tmp_path);install(a,j,b,t,s,g)
+                                  ^^^^^^^^^^^^^^^^^^^^
+tests/test_h3_ledger.py:34: in install
+    return app.initialize_h3(job,b,t,s,g)
+           ^^^^^^^^^^^^^^^^^
+E   AttributeError: 'Coordinator' object has no attribute 'initialize_h3'
+_____________________ test_prepare_race_rechecked[expired] _____________________
+tests/test_h3_ledger.py:113: in test_prepare_race_rechecked
+    a,j,b,t,s,g=fixture(tmp_path);install(a,j,b,t,s,g)
+                                  ^^^^^^^^^^^^^^^^^^^^
+tests/test_h3_ledger.py:34: in install
+    return app.initialize_h3(job,b,t,s,g)
+           ^^^^^^^^^^^^^^^^^
+E   AttributeError: 'Coordinator' object has no attribute 'initialize_h3'
+_____________________ test_prepare_race_rechecked[revoked] _____________________
+tests/test_h3_ledger.py:113: in test_prepare_race_rechecked
+    a,j,b,t,s,g=fixture(tmp_path);install(a,j,b,t,s,g)
+                                  ^^^^^^^^^^^^^^^^^^^^
+tests/test_h3_ledger.py:34: in install
+    return app.initialize_h3(job,b,t,s,g)
+           ^^^^^^^^^^^^^^^^^
+E   AttributeError: 'Coordinator' object has no attribute 'initialize_h3'
+_____________________ test_prepare_race_rechecked[cancel] ______________________
+tests/test_h3_ledger.py:113: in test_prepare_race_rechecked
+    a,j,b,t,s,g=fixture(tmp_path);install(a,j,b,t,s,g)
+                                  ^^^^^^^^^^^^^^^^^^^^
+tests/test_h3_ledger.py:34: in install
+    return app.initialize_h3(job,b,t,s,g)
+           ^^^^^^^^^^^^^^^^^
+E   AttributeError: 'Coordinator' object has no attribute 'initialize_h3'
+______________________ test_prepare_race_rechecked[pause] ______________________
+tests/test_h3_ledger.py:113: in test_prepare_race_rechecked
+    a,j,b,t,s,g=fixture(tmp_path);install(a,j,b,t,s,g)
+                                  ^^^^^^^^^^^^^^^^^^^^
+tests/test_h3_ledger.py:34: in install
+    return app.initialize_h3(job,b,t,s,g)
+           ^^^^^^^^^^^^^^^^^
+E   AttributeError: 'Coordinator' object has no attribute 'initialize_h3'
+______________________ test_repeat_receipt_and_old_epoch _______________________
+tests/test_h3_ledger.py:131: in test_repeat_receipt_and_old_epoch
+    a,j,b,t,s,g=fixture(tmp_path);install(a,j,b,t,s,g)
+                                  ^^^^^^^^^^^^^^^^^^^^
+tests/test_h3_ledger.py:34: in install
+    return app.initialize_h3(job,b,t,s,g)
+           ^^^^^^^^^^^^^^^^^
+E   AttributeError: 'Coordinator' object has no attribute 'initialize_h3'
+___________________ test_actual_kill_commit_reopen[prepare] ____________________
+tests/test_h3_ledger.py:147: in test_actual_kill_commit_reopen
+    a,j,b,t,s,g=fixture(tmp_path);install(a,j,b,t,s,g);a.close()
+                                  ^^^^^^^^^^^^^^^^^^^^
+tests/test_h3_ledger.py:34: in install
+    return app.initialize_h3(job,b,t,s,g)
+           ^^^^^^^^^^^^^^^^^
+E   AttributeError: 'Coordinator' object has no attribute 'initialize_h3'
+______________ test_actual_kill_commit_reopen[blob_before_fsync] _______________
+tests/test_h3_ledger.py:147: in test_actual_kill_commit_reopen
+    a,j,b,t,s,g=fixture(tmp_path);install(a,j,b,t,s,g);a.close()
+                                  ^^^^^^^^^^^^^^^^^^^^
+tests/test_h3_ledger.py:34: in install
+    return app.initialize_h3(job,b,t,s,g)
+           ^^^^^^^^^^^^^^^^^
+E   AttributeError: 'Coordinator' object has no attribute 'initialize_h3'
+_______________ test_actual_kill_commit_reopen[blob_after_fsync] _______________
+tests/test_h3_ledger.py:147: in test_actual_kill_commit_reopen
+    a,j,b,t,s,g=fixture(tmp_path);install(a,j,b,t,s,g);a.close()
+                                  ^^^^^^^^^^^^^^^^^^^^
+tests/test_h3_ledger.py:34: in install
+    return app.initialize_h3(job,b,t,s,g)
+           ^^^^^^^^^^^^^^^^^
+E   AttributeError: 'Coordinator' object has no attribute 'initialize_h3'
+_________________ test_actual_kill_commit_reopen[blob_durable] _________________
+tests/test_h3_ledger.py:147: in test_actual_kill_commit_reopen
+    a,j,b,t,s,g=fixture(tmp_path);install(a,j,b,t,s,g);a.close()
+                                  ^^^^^^^^^^^^^^^^^^^^
+tests/test_h3_ledger.py:34: in install
+    return app.initialize_h3(job,b,t,s,g)
+           ^^^^^^^^^^^^^^^^^
+E   AttributeError: 'Coordinator' object has no attribute 'initialize_h3'
+_______________ test_actual_kill_commit_reopen[manifest_durable] _______________
+tests/test_h3_ledger.py:147: in test_actual_kill_commit_reopen
+    a,j,b,t,s,g=fixture(tmp_path);install(a,j,b,t,s,g);a.close()
+                                  ^^^^^^^^^^^^^^^^^^^^
+tests/test_h3_ledger.py:34: in install
+    return app.initialize_h3(job,b,t,s,g)
+           ^^^^^^^^^^^^^^^^^
+E   AttributeError: 'Coordinator' object has no attribute 'initialize_h3'
+__________________ test_actual_kill_commit_reopen[before_sql] __________________
+tests/test_h3_ledger.py:147: in test_actual_kill_commit_reopen
+    a,j,b,t,s,g=fixture(tmp_path);install(a,j,b,t,s,g);a.close()
+                                  ^^^^^^^^^^^^^^^^^^^^
+tests/test_h3_ledger.py:34: in install
+    return app.initialize_h3(job,b,t,s,g)
+           ^^^^^^^^^^^^^^^^^
+E   AttributeError: 'Coordinator' object has no attribute 'initialize_h3'
+__________________ test_actual_kill_commit_reopen[inside_sql] __________________
+tests/test_h3_ledger.py:147: in test_actual_kill_commit_reopen
+    a,j,b,t,s,g=fixture(tmp_path);install(a,j,b,t,s,g);a.close()
+                                  ^^^^^^^^^^^^^^^^^^^^
+tests/test_h3_ledger.py:34: in install
+    return app.initialize_h3(job,b,t,s,g)
+           ^^^^^^^^^^^^^^^^^
+E   AttributeError: 'Coordinator' object has no attribute 'initialize_h3'
+__________________ test_actual_kill_commit_reopen[after_sql] ___________________
+tests/test_h3_ledger.py:147: in test_actual_kill_commit_reopen
+    a,j,b,t,s,g=fixture(tmp_path);install(a,j,b,t,s,g);a.close()
+                                  ^^^^^^^^^^^^^^^^^^^^
+tests/test_h3_ledger.py:34: in install
+    return app.initialize_h3(job,b,t,s,g)
+           ^^^^^^^^^^^^^^^^^
+E   AttributeError: 'Coordinator' object has no attribute 'initialize_h3'
+_________________ test_actual_kill_commit_reopen[before_cache] _________________
+tests/test_h3_ledger.py:147: in test_actual_kill_commit_reopen
+    a,j,b,t,s,g=fixture(tmp_path);install(a,j,b,t,s,g);a.close()
+                                  ^^^^^^^^^^^^^^^^^^^^
+tests/test_h3_ledger.py:34: in install
+    return app.initialize_h3(job,b,t,s,g)
+           ^^^^^^^^^^^^^^^^^
+E   AttributeError: 'Coordinator' object has no attribute 'initialize_h3'
+_________________ test_actual_kill_commit_reopen[after_cache] __________________
+tests/test_h3_ledger.py:147: in test_actual_kill_commit_reopen
+    a,j,b,t,s,g=fixture(tmp_path);install(a,j,b,t,s,g);a.close()
+                                  ^^^^^^^^^^^^^^^^^^^^
+tests/test_h3_ledger.py:34: in install
+    return app.initialize_h3(job,b,t,s,g)
+           ^^^^^^^^^^^^^^^^^
+E   AttributeError: 'Coordinator' object has no attribute 'initialize_h3'
+=========================== short test summary info ============================
+FAILED tests/test_h3_ledger.py::test_no_initial_lease_or_plain_result_bypass
+FAILED tests/test_h3_ledger.py::test_full_state_every_boundary[0] - Attribute...
+FAILED tests/test_h3_ledger.py::test_full_state_every_boundary[1] - Attribute...
+FAILED tests/test_h3_ledger.py::test_full_state_every_boundary[2] - Attribute...
+FAILED tests/test_h3_ledger.py::test_full_state_every_boundary[3] - Attribute...
+FAILED tests/test_h3_ledger.py::test_invalid_snapshot_does_not_commit[missing]
+FAILED tests/test_h3_ledger.py::test_invalid_snapshot_does_not_commit[truncated]
+FAILED tests/test_h3_ledger.py::test_invalid_snapshot_does_not_commit[manifest]
+FAILED tests/test_h3_ledger.py::test_invalid_snapshot_does_not_commit[profile]
+FAILED tests/test_h3_ledger.py::test_invalid_snapshot_does_not_commit[job] - ...
+FAILED tests/test_h3_ledger.py::test_invalid_snapshot_does_not_commit[layout]
+FAILED tests/test_h3_ledger.py::test_invalid_snapshot_does_not_commit[step]
+FAILED tests/test_h3_ledger.py::test_invalid_snapshot_does_not_commit[mixed]
+FAILED tests/test_h3_ledger.py::test_prepare_race_rechecked[expired] - Attrib...
+FAILED tests/test_h3_ledger.py::test_prepare_race_rechecked[revoked] - Attrib...
+FAILED tests/test_h3_ledger.py::test_prepare_race_rechecked[cancel] - Attribu...
+FAILED tests/test_h3_ledger.py::test_prepare_race_rechecked[pause] - Attribut...
+FAILED tests/test_h3_ledger.py::test_repeat_receipt_and_old_epoch - Attribute...
+FAILED tests/test_h3_ledger.py::test_actual_kill_commit_reopen[prepare] - Att...
+FAILED tests/test_h3_ledger.py::test_actual_kill_commit_reopen[blob_before_fsync]
+FAILED tests/test_h3_ledger.py::test_actual_kill_commit_reopen[blob_after_fsync]
+FAILED tests/test_h3_ledger.py::test_actual_kill_commit_reopen[blob_durable]
+FAILED tests/test_h3_ledger.py::test_actual_kill_commit_reopen[manifest_durable]
+FAILED tests/test_h3_ledger.py::test_actual_kill_commit_reopen[before_sql] - ...
+FAILED tests/test_h3_ledger.py::test_actual_kill_commit_reopen[inside_sql] - ...
+FAILED tests/test_h3_ledger.py::test_actual_kill_commit_reopen[after_sql] - A...
+FAILED tests/test_h3_ledger.py::test_actual_kill_commit_reopen[before_cache]
+FAILED tests/test_h3_ledger.py::test_actual_kill_commit_reopen[after_cache]
+28 failed in 8.99s

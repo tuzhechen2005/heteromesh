@@ -1,0 +1,14 @@
+FF                                                                       [100%]
+=================================== FAILURES ===================================
+__________ test_retry_store_creation_reconfirms_ancestor_entries[h3] ___________
+tests/test_h3_ledger.py:519: in test_retry_store_creation_reconfirms_ancestor_entries
+    assert root/'h3' in seen and root in seen
+E   AssertionError: assert ((PosixPath('/tmp/pytest-of-root/pytest-27/test_retry_store_creation_reco0/coordinator') / 'h3') in [PosixPath('/tmp/pytest-of-root/pytest-27/test_retry_store_creation_reco0/coordinator/h3/job')])
+______ test_retry_store_creation_reconfirms_ancestor_entries[coordinator] ______
+tests/test_h3_ledger.py:519: in test_retry_store_creation_reconfirms_ancestor_entries
+    assert root/'h3' in seen and root in seen
+E   AssertionError: assert ((PosixPath('/tmp/pytest-of-root/pytest-27/test_retry_store_creation_reco1/coordinator') / 'h3') in [PosixPath('/tmp/pytest-of-root/pytest-27/test_retry_store_creation_reco1/coordinator/h3/job')])
+=========================== short test summary info ============================
+FAILED tests/test_h3_ledger.py::test_retry_store_creation_reconfirms_ancestor_entries[h3]
+FAILED tests/test_h3_ledger.py::test_retry_store_creation_reconfirms_ancestor_entries[coordinator]
+2 failed, 64 deselected in 2.53s

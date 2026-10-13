@@ -1,0 +1,178 @@
+{
+  "schema_version": 1,
+  "environment": "cloud Ubuntu 24.04.3 x86_64, Python3.12.14, pinned torch2.14.1+cpu/diffusers/safetensors0.8.0",
+  "final_tested_code_sha": "279a11b5d49496a05f60bea92c3a88cb4e1adabb",
+  "final_tested_tree": "baed32bf07e4ec04b7ff2dfb27ee7ed684bffd44",
+  "command": "HF_HUB_OFFLINE=1 OMP_NUM_THREADS=1 /workspace/scratch/ec5ad62244bc/h3-cpu-venv/bin/python -m pytest -q -rs",
+  "final_full_log": "activation-final-full-unique.log",
+  "records": [
+    {
+      "path": "279a11b-final-targeted-unique.log",
+      "sha256": "b8a04d96952684ba43633c657ed8ef7dc8759ac48d647c90cff64ff635253f94",
+      "bytes": 134,
+      "exit_code": 0,
+      "summary": "9 passed, 62 deselected in 3.98s"
+    },
+    {
+      "path": "activation-final-full-unique.log",
+      "sha256": "60ebc5f1ed8081d558bc1d2c282576d96706920fb9d1abd1c718eb77069ab66f",
+      "bytes": 764,
+      "exit_code": 0,
+      "summary": "383 passed, 2 skipped in 110.27s (0:01:50)"
+    },
+    {
+      "path": "activation-partial-green.log",
+      "sha256": "fe1e9558d85beb84796a07a25e714aa39a80389da6d50ef1a590086bb5913ac8",
+      "bytes": 113,
+      "exit_code": 0,
+      "summary": "3 passed, 68 deselected in 3.07s"
+    },
+    {
+      "path": "activation-partial-red.log",
+      "sha256": "a4103b90ed1ca145f3b8f73f633ce453e3c120f1916cf500ff6f335c39b700d7",
+      "bytes": 711,
+      "exit_code": 1,
+      "summary": "1 failed, 70 deselected in 2.77s"
+    },
+    {
+      "path": "all-zero-identity-green.log",
+      "sha256": "65dd420d92dbc2e2882b5a6f468d59e46edb0339b635f6bf4c9ef45fdb4a3772",
+      "bytes": 113,
+      "exit_code": 0,
+      "summary": "3 passed, 67 deselected in 2.94s"
+    },
+    {
+      "path": "concurrent-red.log",
+      "sha256": "7bb3c7fdf8266609e779d67c6a2f72cf30e69bc7e938413ba65bc1806ea0a12b",
+      "bytes": 2451,
+      "exit_code": 1,
+      "summary": "1 failed, 53 deselected in 3.14s"
+    },
+    {
+      "path": "exact-code-green.log",
+      "sha256": "f519b8d2595391caac5c3fb905496fe4ab76b7bd8bf04e150e7b882d48874a1b",
+      "bytes": 743,
+      "exit_code": 0,
+      "summary": "366 passed, 2 skipped in 109.66s (0:01:49)"
+    },
+    {
+      "path": "external-review-green.log",
+      "sha256": "6fa2d0edfa1a005a88e1f4292a2d1ae0763586ca482c7bbdb6dcc50a88207668",
+      "bytes": 113,
+      "exit_code": 0,
+      "summary": "5 passed, 64 deselected in 5.12s"
+    },
+    {
+      "path": "external-review-red.log",
+      "sha256": "c1659532ebb29435e3a5af3a3fec50253bcbbab2f5511882a44a55e31c58c3d4",
+      "bytes": 1618,
+      "exit_code": 1,
+      "summary": "3 failed, 57 deselected in 3.67s"
+    },
+    {
+      "path": "hierarchy-green.log",
+      "sha256": "535c19f29c61b0a37a16eb59ad80c840eaa9785ad507a4b1b51b38db31e23bde",
+      "bytes": 115,
+      "exit_code": 0,
+      "summary": "11 passed, 55 deselected in 19.91s"
+    },
+    {
+      "path": "hierarchy-red.log",
+      "sha256": "5499d99987b624515721a27bbb2443321d9b7d87636bbc3d37f6fb83eb29542b",
+      "bytes": 1338,
+      "exit_code": 1,
+      "summary": "2 failed, 64 deselected in 2.53s"
+    },
+    {
+      "path": "latent-anchor-zero-red.log",
+      "sha256": "0fb0512d97c3e81ca45dc7bfa7eb63b4cfd3d9ed134c5edab94681aa1cdd053b",
+      "bytes": 718,
+      "exit_code": 1,
+      "summary": "1 failed, 69 deselected in 2.60s"
+    },
+    {
+      "path": "ledger-red.log",
+      "sha256": "6c4eb8a65ea41e73dd1404a0bca592655c519acb4704740cede2ed0327a9204a",
+      "bytes": 15324,
+      "exit_code": 1,
+      "summary": "28 failed in 8.99s"
+    },
+    {
+      "path": "light-green.log",
+      "sha256": "628538e3e13a4f6b22c17c81b857cd4e2da167d3e13e1e39449c6c7f5f413a4b",
+      "bytes": 99,
+      "exit_code": 0,
+      "summary": "3 passed in 10.62s"
+    },
+    {
+      "path": "pip-vcs-red.log",
+      "sha256": "d7f2c0d3d6a26beda26b7d0cc3b7f53cb50357ee36aee6220d9f2ccc801539be",
+      "bytes": 2158,
+      "exit_code": 1,
+      "summary": "3 failed in 10.23s"
+    },
+    {
+      "path": "review-green.log",
+      "sha256": "361114a900ea764e2bc74b4c73fd86297f04a564238c06907ad7493baa2b32b6",
+      "bytes": 115,
+      "exit_code": 0,
+      "summary": "10 passed, 50 deselected in 17.63s"
+    },
+    {
+      "path": "review-red.log",
+      "sha256": "aeffbc6395c77dd763d1d14312fc2f49e0777da2c8a0da48bf8e008f970ed6b5",
+      "bytes": 1555,
+      "exit_code": 1,
+      "summary": "3 failed, 54 deselected in 3.23s"
+    },
+    {
+      "path": "revised-full-green.log",
+      "sha256": "9d5c0e3b142e84e42a86b961b51701ae2d47cec86be0e624e52ee6b6bc876ebb",
+      "bytes": 743,
+      "exit_code": 0,
+      "summary": "376 passed, 2 skipped in 106.70s (0:01:46)"
+    },
+    {
+      "path": "revocation-red.log",
+      "sha256": "c4debbb8b7af2985a1f4a6df9f70f5b8363e7c0a8b4fc59b78bbf6ccc0ae99c5",
+      "bytes": 681,
+      "exit_code": 1,
+      "summary": "1 failed, 52 deselected in 2.83s"
+    },
+    {
+      "path": "revoke-http-red.log",
+      "sha256": "7842ed5b394bb62ac2b9964dd803a8caad1d43928eae8bb608bf4defb66a9152",
+      "bytes": 748,
+      "exit_code": 1,
+      "summary": "1 failed, 60 deselected in 3.73s"
+    },
+    {
+      "path": "signed-zero-green.log",
+      "sha256": "d64e0b1acc4ff4a1b7e1a21315cb2b75ce6c025920fed2c514f0e337374e33ae",
+      "bytes": 113,
+      "exit_code": 0,
+      "summary": "2 passed, 67 deselected in 2.97s"
+    },
+    {
+      "path": "signed-zero-valid-red.log",
+      "sha256": "387f09472e721690bb0289ed6d1cfd7c975fd48fc26b1bac975f36cb51b1940b",
+      "bytes": 1146,
+      "exit_code": 1,
+      "summary": "2 failed, 67 deselected in 2.87s"
+    },
+    {
+      "path": "windows-fsync-red.log",
+      "sha256": "0c170242016860e3184a261283ba3b0c5e49ee0403461f0f21aaeeb1d5eaf4d9",
+      "bytes": 1125,
+      "exit_code": 1,
+      "summary": "1 failed, 63 deselected in 2.62s"
+    },
+    {
+      "path": "windows-red.log",
+      "sha256": "08fe9cbbadfc9c2067e6e5fc1b958214d982c90d5d49636c8ee931a92ef7754c",
+      "bytes": 2079,
+      "exit_code": 1,
+      "summary": "3 failed in 0.11s"
+    }
+  ]
+}

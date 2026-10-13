@@ -1,0 +1,36 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+___________ test_store_job_read_obeys_shared_ledger_connection_lock ____________
+tests/test_h3_ledger.py:371: in test_store_job_read_obeys_shared_ledger_connection_lock
+    stores=list(pool.map(lambda _:a.h3.store(j),range(2)))
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/concurrent/futures/_base.py:619: in result_iterator
+    yield _result_or_cancel(fs.pop())
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/concurrent/futures/_base.py:317: in _result_or_cancel
+    return fut.result(timeout)
+           ^^^^^^^^^^^^^^^^^^^
+/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/concurrent/futures/_base.py:449: in result
+    return self.__get_result()
+           ^^^^^^^^^^^^^^^^^^^
+/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/concurrent/futures/_base.py:401: in __get_result
+    raise self._exception
+/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/concurrent/futures/thread.py:59: in run
+    result = self.fn(*self.args, **self.kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_h3_ledger.py:371: in <lambda>
+    stores=list(pool.map(lambda _:a.h3.store(j),range(2)))
+                                  ^^^^^^^^^^^^^
+src/heteromesh/h3_recovery.py:37: in store
+    self.state._job(job)
+tests/test_h3_ledger.py:366: in guarded
+    assert a.state.lock._is_owned(),'shared SQLite job read outside ledger lock'
+E   AssertionError: shared SQLite job read outside ledger lock
+E   assert False
+E    +  where False = <built-in method _is_owned of _thread.RLock object at 0x7f53f50a6800>()
+E    +    where <built-in method _is_owned of _thread.RLock object at 0x7f53f50a6800> = <unlocked _thread.RLock object owner=0 count=0 at 0x7f53f50a6800>._is_owned
+E    +      where <unlocked _thread.RLock object owner=0 count=0 at 0x7f53f50a6800> = <heteromesh.state.StateStore object at 0x7f53f4065700>.lock
+E    +        where <heteromesh.state.StateStore object at 0x7f53f4065700> = <heteromesh.service.Coordinator object at 0x7f53f4678740>.state
+=========================== short test summary info ============================
+FAILED tests/test_h3_ledger.py::test_store_job_read_obeys_shared_ledger_connection_lock
+1 failed, 71 deselected in 7.02s
