@@ -7,6 +7,8 @@ from heteromesh.service import Coordinator
 from heteromesh.client import PinnedClient, RemoteError
 from heteromesh.protocol import encode_tensor
 from unittest.mock import patch
+import subprocess
+import sys
 
 
 class CoordinatorStartupTests(unittest.TestCase):
@@ -22,6 +24,58 @@ class CoordinatorStartupTests(unittest.TestCase):
                     client=PinnedClient('127.0.0.1',app.port,app.identity['fingerprint'],token=app.identity['admin_token'])
                     assert client.request('GET','/v1/nodes')['nodes']==[]
                 finally:app.shutdown();thread.join();app.close()
+
+    def test_restore_missing_optional_runtime_is_structured_and_read_only(self):
+        script='''import importlib.abc,sys,threading,json
+from heteromesh.service import Coordinator
+from heteromesh.client import PinnedClient,RemoteError
+blocked=[]
+class MissingOptional(importlib.abc.MetaPathFinder):
+ def find_spec(self,fullname,path=None,target=None):
+  if fullname==sys.argv[2]:
+   blocked.append(fullname)
+   raise ModuleNotFoundError('optional runtime absent',name=fullname)
+sys.meta_path.insert(0,MissingOptional())
+a=Coordinator(sys.argv[1]);a.http.handle_error=lambda *_:None
+thread=threading.Thread(target=a.serve_forever,daemon=True);thread.start()
+client=PinnedClient('127.0.0.1',a.port,a.identity['fingerprint'],token=a.identity['admin_token'])
+request={'manifest_digest':'a'*64,'profile_digest':'b'*64,'tasks':[{'task_id':'one','fragment_id':'one','step_index':0,'node_id':'pc','operation':'tiny','parameters':{},'inputs':{},'outputs':{'hidden':{'dtype':'float32','shape':[1]}}}]}
+ordinary=a.state.submit_job('ordinary',request)['job_id']
+h3=a.state.submit_job('h3',dict(request,h3_recovery=True))['job_id']
+before=list(a.state.db.iterdump())
+try:
+ for job,expected in [(ordinary,'CHECKPOINT_REQUIRED'),('f'*32,'NOT_FOUND'),(h3,'UNSUPPORTED_RUNTIME')]:
+  try:client.request('POST','/v1/jobs/'+job+'/restore',{'request_id':'r','expected_epoch':0})
+  except RemoteError as exc:
+   assert exc.body['error']['code']==expected,(exc.body,expected)
+  else:raise AssertionError('restore unexpectedly succeeded')
+  if job!=h3:assert blocked==[],'non-H3 restore imported optional runtime'
+ assert blocked==[sys.argv[2]] and a._h3 is None
+ assert list(a.state.db.iterdump())==before
+ print('structured optional-runtime denial; authority unchanged')
+finally:a.shutdown();thread.join();a.close()
+'''
+        for missing in ('torch','diffusers'):
+            with self.subTest(missing=missing),tempfile.TemporaryDirectory() as root:
+                result=subprocess.run([sys.executable,'-c',script,root,missing],capture_output=True,text=True,timeout=30)
+                self.assertEqual(result.returncode,0,result.stdout+result.stderr)
+
+    def test_unrelated_import_failure_is_not_optional_runtime_denial(self):
+        import builtins
+        original=builtins.__import__
+        def imported(name,globals=None,locals=None,fromlist=(),level=0):
+            if name=='h3_recovery' and level==1:
+                raise ModuleNotFoundError('internal module defect',name='internal_dependency')
+            return original(name,globals,locals,fromlist,level)
+        with tempfile.TemporaryDirectory() as root:
+            app=Coordinator(root);before=list(app.state.db.iterdump())
+            try:
+                with patch('builtins.__import__',side_effect=imported),self.assertRaises(ModuleNotFoundError) as caught:
+                    _=app.h3
+                self.assertEqual(caught.exception.name,'internal_dependency')
+                self.assertIsNone(app._h3)
+                self.assertEqual(list(app.state.db.iterdump()),before)
+            finally:app.close()
 
 class ServiceTests(unittest.TestCase):
     def setUp(self):

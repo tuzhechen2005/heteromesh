@@ -34,17 +34,20 @@ class H3Recovery:
 
     def store(self,job):
         # job ids originate from the ledger, never user filesystem paths.
-        self.state._job(job)
-        if job not in self._stores:self._stores[job]=H3CheckpointStore(self.app.root/'h3'/job)
-        return self._stores[job]
+        # Restore preparation runs outside its SQL transaction. The shared
+        # connection and lazy cache still require the ledger's thread lock.
+        with self.state.lock:
+            self.state._job(job)
+            if job not in self._stores:self._stores[job]=H3CheckpointStore(self.app.root/'h3'/job)
+            return self._stores[job]
 
     def point(self,job):
-        row=self.state.db.execute('SELECT * FROM h3_boundaries WHERE job=?',(job,)).fetchone()
+        with self.state.lock:row=self.state.db.execute('SELECT * FROM h3_boundaries WHERE job=?',(job,)).fetchone()
         if row is None:raise StateError('CHECKPOINT_REQUIRED')
         return row
 
     def initialize(self,job,binding,tensors,schedulers,generators):
-        request=json.loads(self.state._job(job)['request']);tasks=request['tasks']
+        with self.state.lock:request=json.loads(self.state._job(job)['request']);tasks=request['tasks']
         if request.get('h3_recovery') is not True:raise StateError('INVALID_PLAN')
         if binding['job_id']!=job or binding['recovery_epoch']!=0 or binding['model_manifest_sha256']!=request['manifest_digest'] or binding['profile_sha256']!=request['profile_digest']:raise StateError('CHECKPOINT_INVALID')
         steps=sorted(set(t['step_index'] for t in tasks))

@@ -94,12 +94,19 @@ class Coordinator:
     def h3(self):
         with self.state.lock:
             if self._h3 is None:
-                from .h3_recovery import H3Recovery
+                try:from .h3_recovery import H3Recovery
+                except ModuleNotFoundError as exc:
+                    if exc.name not in ('torch','diffusers'):raise
+                    raise StateError('UNSUPPORTED_RUNTIME') from exc
                 self._h3=H3Recovery(self)
             return self._h3
     def initialize_h3(self,*args,**kwargs):return self.h3.initialize(*args,**kwargs)
     def prepare_h3(self,*args,**kwargs):return self.h3.prepare(*args,**kwargs)
-    def restore_h3(self,*args,**kwargs):return self.h3.restore(*args,**kwargs)
+    def restore_h3(self,job,*args,**kwargs):
+        with self.state.lock:
+            request=json.loads(self.state._job(job)['request'])
+            if request.get('h3_recovery') is not True:raise StateError('CHECKPOINT_REQUIRED')
+        return self.h3.restore(job,*args,**kwargs)
     def serve_forever(self): self.http.serve_forever()
     def shutdown(self): self.http.shutdown()
     def close(self): self.http.server_close(); self.state.close(); self.security.close()

@@ -358,6 +358,50 @@ def test_concurrent_same_restore_request_is_one_epoch(tmp_path):
         assert a.state.get_job(j)['recovery_epoch']==1
     finally:a.close()
 
+def test_store_job_read_obeys_shared_ledger_connection_lock(tmp_path,monkeypatch):
+    from concurrent.futures import ThreadPoolExecutor
+    a,j,b,t,s,g=fixture(tmp_path);install(a,j,b,t,s,g)
+    original=a.state._job
+    def guarded(job):
+        assert a.state.lock._is_owned(),'shared SQLite job read outside ledger lock'
+        return original(job)
+    monkeypatch.setattr(a.state,'_job',guarded)
+    try:
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            stores=list(pool.map(lambda _:a.h3.store(j),range(2)))
+        assert stores[0] is stores[1]
+    finally:a.close()
+
+@pytest.mark.parametrize('reader',['store','initialize','point'])
+def test_adapter_reads_wait_for_other_thread_transaction(tmp_path,reader):
+    from concurrent.futures import ThreadPoolExecutor,TimeoutError
+    a,j,b,t,s,g=fixture(tmp_path);install(a,j,b,t,s,g);adapter=a.h3
+    writing=threading.Event();reading=threading.Event();release=threading.Event()
+    class RollbackOnly(Exception):pass
+    def writer():
+        try:
+            with a.state._tx():
+                a.state.db.execute('DELETE FROM jobs WHERE id=?',(j,))
+                a.state.db.execute('DELETE FROM h3_boundaries WHERE job=?',(j,))
+                writing.set();assert release.wait(10)
+                raise RollbackOnly()
+        except RollbackOnly:pass
+    def read():
+        reading.set()
+        if reader=='store':return adapter.store(j)
+        if reader=='point':return adapter.point(j)
+        return adapter.initialize(j,b,t,s,g)
+    try:
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            write=pool.submit(writer);assert writing.wait(10)
+            pending=pool.submit(read);assert reading.wait(10)
+            try:
+                with pytest.raises(TimeoutError):pending.result(timeout=.2)
+            finally:release.set()
+            write.result(timeout=10);assert pending.result(timeout=10)
+        assert a.state.get_job(j)['recovery_epoch']==0
+    finally:release.set();a.close()
+
 
 def test_older_restore_cannot_replace_newer_runtime(tmp_path):
     from concurrent.futures import ThreadPoolExecutor

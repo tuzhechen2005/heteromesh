@@ -3,6 +3,8 @@ import subprocess
 import sys
 import time
 import tempfile
+import os
+import signal
 
 PRELUDE='''import faulthandler,hashlib,json,time,sys
 from pathlib import Path
@@ -19,6 +21,7 @@ probe_stage('python_started')
 
 
 def terminate_at_marker(code,args,marker,*,timeout):
+    assert not marker.exists(),'stale marker before launch'
     started=time.monotonic()
     # File capture cannot fill an undrained PIPE while faulthandler writes stacks.
     with tempfile.TemporaryFile() as out,tempfile.TemporaryFile() as err:
@@ -38,5 +41,7 @@ def terminate_at_marker(code,args,marker,*,timeout):
         if not reached:
             reason='marker deadline exceeded' if before is None else 'child exited before marker'
             raise AssertionError(reason+' '+report)
-        assert p.returncode!=0,'child exited normally instead of being terminated: '+report
+        assert before is None,'child exited before termination: '+report
+        expected=-signal.SIGTERM if os.name=='posix' else 1
+        assert p.returncode==expected,'child exited without expected termination status: '+report
         return report

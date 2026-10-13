@@ -26,3 +26,15 @@ def test_marker_is_actually_terminated_without_pipe_backpressure(tmp_path):
     report=terminate_at_marker(code,[marker],marker,timeout=2)
     assert marker.exists() and 'exit_code_after_stop=0\n' not in report
     assert 'x'*100000 in report
+
+
+def test_marker_followed_by_natural_failure_is_not_termination(tmp_path):
+    marker=tmp_path/'marker'
+    with pytest.raises(AssertionError,match='child exited before termination'):
+        terminate_at_marker("Path(sys.argv[1]).write_text('ready'); sys.exit(7)",[marker],marker,timeout=2)
+
+
+def test_stale_marker_is_rejected_before_launch(tmp_path):
+    marker=tmp_path/'marker';marker.write_text('old')
+    with pytest.raises(AssertionError,match='stale marker'):
+        terminate_at_marker('import time; time.sleep(10)',[],marker,timeout=2)
