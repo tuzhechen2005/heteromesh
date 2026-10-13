@@ -1,0 +1,172 @@
+{
+  "schema_version": 1,
+  "code_sha": "05ba9f02c32c1861f751dfacc47da1af8546fb0b",
+  "code_tree": "d04889fc778a6a548b09f752db8b5a9ba34caae7",
+  "local_tree_identical_code_sha": "64c140f31ef1eb7358323c6006bb736dc9357fa9",
+  "author_full_command": "HF_HUB_OFFLINE=1 OMP_NUM_THREADS=1 PYTHONPATH=/workspace/scratch/ec5ad62244bc/heteromesh/src /workspace/scratch/ec5ad62244bc/h3-cpu-venv/bin/python -m pytest -q -rs",
+  "reviewer_full_command": "PYTHONPATH=/workspace/scratch/ec5ad62244bc/h3-review/src HF_HUB_OFFLINE=1 OMP_NUM_THREADS=1 /workspace/scratch/ec5ad62244bc/h3-cpu-venv/bin/python -m pytest -q -rs",
+  "matrix_command": "HF_HUB_OFFLINE=1 OMP_NUM_THREADS=1 PYTHONPATH=/workspace/scratch/ec5ad62244bc/heteromesh/src /workspace/scratch/ec5ad62244bc/h3-cpu-venv/bin/python -m pytest tests/test_h3_checkpoints.py tests/test_h3_ledger.py tests/test_h3_source_install.py tests/test_crash_probe.py tests/test_service.py -q -rs",
+  "source_sha256": {
+    "src/heteromesh/service.py": "ea66c6adf7e55b3b5d80d10f4f00d68509363cce13c6c08f86f678cde73a0e1d",
+    "src/heteromesh/h3_recovery.py": "be6b68e94488c223b1496df4c231bfcfab324a80ab006ebf3a76af68a9423b9b",
+    "tests/_crash_probe.py": "61fae0b01b5df4122f30b11fc001544297ff6841e5b840d59a5a6b7d483a6743",
+    "tests/test_crash_probe.py": "cfd998259146490fcac7338f3ebd5105ca18338a548c5da92342a614df45637a",
+    "tests/test_service.py": "142e2419a765d509d7094b287caba6151d328e1acc3a869b2d94243b80a037fb",
+    "tests/test_h3_ledger.py": "aed92f4f195989962deb057796a871ad7a012dc389abadf18784de9d10f9a019",
+    ".github/workflows/h3-checkpoints.yml": "c03131e12f2b6872a12585f1cff85617834fbb08a62fd2bee07d29b9e6888535",
+    "tools/diagnose_coordinator_startup.py": "9643dcf155cbdfb427e12d02d24f60db4d335d2b339968939bceb8c0f62004b0"
+  },
+  "git_subtrees": {
+    "src": "d96738b5edc6aafaefd21151ccc9e4641a29a4f4",
+    "tests": "26f493f88d5e41e3072b87dcaf58b6acd282928a",
+    ".github/workflows": "1681e952588406ad6260e8db3967e7ba914cb43d",
+    "pyproject.toml": "2565109763789181c4bcc363d011942c3c9bfcc0"
+  },
+  "records": [
+    {
+      "path": "concurrent-store-read-green-unique.log",
+      "sha256": "fb6d6714ad5b0c37cb3c5b29d7deaf1843e0878a5ae5a4e6d7f7caac93cbca34",
+      "bytes": 113,
+      "summary": "2 passed, 70 deselected in 6.42s",
+      "exit_code": 0
+    },
+    {
+      "path": "concurrent-store-read-red-unique.log",
+      "sha256": "edbad1e589fa91f5fce0b1fc3f7f5c855038455fa2180705356234f29e3a0a4c",
+      "bytes": 2557,
+      "summary": "1 failed, 71 deselected in 7.02s",
+      "exit_code": 1
+    },
+    {
+      "path": "cpu-runtime-final-green-unique.log",
+      "sha256": "ce8e4d748e4f00df7c8466d2cd983107fdab32d6ef4735da534afb16f67fb829",
+      "bytes": 121,
+      "summary": "16 passed in 22.43s",
+      "exit_code": 0
+    },
+    {
+      "path": "crash-diagnostics-green-unique.log",
+      "sha256": "e1e71eb0e3cd8721b67d163689daf005ce81017cd03e5b7382a3760fcff7da3b",
+      "bytes": 98,
+      "summary": "2 passed in 0.82s",
+      "exit_code": 0
+    },
+    {
+      "path": "crash-diagnostics-red-unique.log",
+      "sha256": "f7c7daab3d0ab65b0a9d173680152d31bfbfe10eb47901988a447afc78deb108",
+      "bytes": 1035,
+      "summary": "2 failed in 0.71s",
+      "exit_code": 1
+    },
+    {
+      "path": "crash-five-final-deterministic-unique.log",
+      "sha256": "47980be0ee6b3d9ecaf2df3dc62bb008e6a048a89d42d62ffcc77d54a18616d1",
+      "bytes": 98,
+      "summary": "5 passed in 2.43s",
+      "exit_code": 0
+    },
+    {
+      "path": "crash-termination-truth-red-unique.log",
+      "sha256": "6abcd62b35b17a9500175b9979aaa9ddb66dad00d2b96d3e56cd17503e93673d",
+      "bytes": 1158,
+      "summary": "2 failed, 3 deselected in 0.24s",
+      "exit_code": 1
+    },
+    {
+      "path": "dirty-authority-transaction-red-replay-unique.log",
+      "sha256": "6a2ee45a1d1ae992c152f8ea277522f8dc30b456f3c2fadd939f0bee99d8b7fb",
+      "bytes": 4449,
+      "summary": "3 failed, 72 deselected in 15.78s",
+      "exit_code": 1
+    },
+    {
+      "path": "final-boundary-green-unique.log",
+      "sha256": "0e3f1a581a0fe385e72ad07d683a05994b3ce17e7224c5fcab416243b61aa4c3",
+      "bytes": 114,
+      "summary": "9 passed, 82 deselected in 26.00s",
+      "exit_code": 0
+    },
+    {
+      "path": "light-optional-runtime-red-unique.log",
+      "sha256": "8e845d468b4983378d72f136dd391a9e32207050885b9b968b72eee58471e1fc",
+      "bytes": 782,
+      "summary": "1 failed, 10 deselected in 3.99s",
+      "exit_code": 1
+    },
+    {
+      "path": "light-runtime-final-green-unique.log",
+      "sha256": "5b76434427e6232cecc6137c1438845eee5c382fb0ebf46d9fd332e90e48932b",
+      "bytes": 121,
+      "summary": "16 passed in 21.49s",
+      "exit_code": 0
+    },
+    {
+      "path": "mac-hosted-diagnostic-extract.log",
+      "sha256": "fa8dea8de51565e641dfb1133b469a1d555c94cd95e9a0c4b92f150b9ab8f21c",
+      "bytes": 6871,
+      "summary": null
+    },
+    {
+      "path": "mac-startup-fix-full-frozen-unique.log",
+      "sha256": "271f27808e847065234cecfbc67cbd70ca0ae81f5c07ce62b3868be4fb86091a",
+      "bytes": 764,
+      "summary": "387 passed, 2 skipped in 274.61s (0:04:34)",
+      "exit_code": 0
+    },
+    {
+      "path": "mac-startup-fix-integration-unique.log",
+      "sha256": "8101c59cbe373783e80d86aaa6819b3d758a0dcb1b337c62ecc513b922857507",
+      "bytes": 213,
+      "summary": "130 passed in 258.12s (0:04:18)",
+      "exit_code": 0
+    },
+    {
+      "path": "optional-runtime-http-valid-red-replay-unique.log",
+      "sha256": "ecd2dfb75eaf9ff10718beaf9fb11a8e9688b074cd223d5c817905af35602264",
+      "bytes": 1642,
+      "summary": "1 failed, 10 deselected in 1.78s",
+      "exit_code": 1
+    },
+    {
+      "path": "qa-full-64c140f-isolated.log",
+      "sha256": "5426cdf0e297f04229e2058836f71ebd93f5ec72f7e1fa72b198f96e30cb0696",
+      "bytes": 743,
+      "summary": "395 passed, 2 skipped in 274.37s (0:04:34)",
+      "exit_code": 0
+    },
+    {
+      "path": "recovery-frozen-final-full-v3-unique.log",
+      "sha256": "95ff0fd050871bcc152446c1c3c8489c7e6f8d56b6c80390d9a32af1bccf7c83",
+      "bytes": 764,
+      "summary": "395 passed, 2 skipped in 278.30s (0:04:38)",
+      "exit_code": 0
+    },
+    {
+      "path": "recovery-frozen-final-matrix-v3-unique.log",
+      "sha256": "7e818ebbe4a5e1bcfe16f944dc0abd38ecc13b485ffa91e42da1366bd8137fff",
+      "bytes": 213,
+      "summary": "138 passed in 270.85s (0:04:30)",
+      "exit_code": 0
+    },
+    {
+      "path": "reverse-dns-green-unique.log",
+      "sha256": "7bf30a17e211078d0788af7607b58e6da09865a57b5cb2ade698d01f65081b08",
+      "bytes": 112,
+      "summary": "1 passed, 8 deselected in 2.65s",
+      "exit_code": 0
+    },
+    {
+      "path": "reverse-dns-red-unique.log",
+      "sha256": "8145099ca8e142eccdfd27002ff8f6179b7fc9b97a078a569e78973fdafb04f4",
+      "bytes": 1679,
+      "summary": "1 failed, 8 deselected in 1.11s",
+      "exit_code": 1
+    },
+    {
+      "path": "startup-fixed-code-frozen-unique.log",
+      "sha256": "184b44eb0707b463ae210a06740f9acbdc1dc24302637599da1cb36104af91f5",
+      "bytes": 1708,
+      "summary": null
+    }
+  ]
+}

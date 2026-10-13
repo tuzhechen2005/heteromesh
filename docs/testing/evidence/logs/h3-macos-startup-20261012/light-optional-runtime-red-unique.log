@@ -1,0 +1,11 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+_ CoordinatorStartupTests.test_restore_missing_optional_runtime_is_structured_and_read_only _
+tests/test_service.py:61: in test_restore_missing_optional_runtime_is_structured_and_read_only
+    self.assertEqual(result.returncode,0,result.stdout+result.stderr)
+E   AssertionError: 1 != 0 : Traceback (most recent call last):
+E     File "<string>", line 25, in <module>
+E   AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_service.py::CoordinatorStartupTests::test_restore_missing_optional_runtime_is_structured_and_read_only
+1 failed, 10 deselected in 3.99s

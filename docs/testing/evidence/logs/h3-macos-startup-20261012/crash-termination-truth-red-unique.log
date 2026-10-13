@@ -1,0 +1,16 @@
+FF                                                                       [100%]
+=================================== FAILURES ===================================
+__________ test_marker_followed_by_natural_failure_is_not_termination __________
+tests/test_crash_probe.py:33: in test_marker_followed_by_natural_failure_is_not_termination
+    with pytest.raises(AssertionError,match='child exited before termination'):
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   Failed: DID NOT RAISE <class 'AssertionError'>
+_________________ test_stale_marker_is_rejected_before_launch __________________
+tests/test_crash_probe.py:39: in test_stale_marker_is_rejected_before_launch
+    with pytest.raises(AssertionError,match='stale marker'):
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   Failed: DID NOT RAISE <class 'AssertionError'>
+=========================== short test summary info ============================
+FAILED tests/test_crash_probe.py::test_marker_followed_by_natural_failure_is_not_termination
+FAILED tests/test_crash_probe.py::test_stale_marker_is_rejected_before_launch
+2 failed, 3 deselected in 0.24s

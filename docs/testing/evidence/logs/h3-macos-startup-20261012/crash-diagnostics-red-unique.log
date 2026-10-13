@@ -1,0 +1,14 @@
+FF                                                                       [100%]
+=================================== FAILURES ===================================
+________________ test_early_exit_reports_actual_code_and_output ________________
+tests/test_crash_probe.py:10: in test_early_exit_reports_actual_code_and_output
+    assert 'child exited before marker' in message and 'exit_code_before_stop=7' in message
+E   AssertionError: assert ('child exited before marker' in '')
+________________ test_deadline_reports_phase_elapsed_and_stack _________________
+tests/test_crash_probe.py:18: in test_deadline_reports_phase_elapsed_and_stack
+    assert 'marker deadline exceeded' in message and 'elapsed=' in message
+E   AssertionError: assert ('marker deadline exceeded' in '')
+=========================== short test summary info ============================
+FAILED tests/test_crash_probe.py::test_early_exit_reports_actual_code_and_output
+FAILED tests/test_crash_probe.py::test_deadline_reports_phase_elapsed_and_stack
+2 failed in 0.71s

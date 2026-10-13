@@ -96,3 +96,5 @@ Python contracts run38104237904/job114366227891 failed missing setuptools.build_
 Evidence-only commit cannot self-reference its SHA. PR body/comment binds final doc head and verified identical executable files to tested code SHA. Registered non-author /root/research will read final docs/full head and publish exact-head review; /root/qa cloud review is additional independent evidence. Shared GitHub login is not independent-account approval. Author never merges. Current-head independent review and latest CI remain coordinating session's merge gates.
 
 iPhone/H3 physical devices, formal weights, full video, capacity benefit, physical Windows–Mac H3 collaboration, GPU/MPS qualification: **NOT RUN**. No stable hardware support claim.
+
+Continuation after interrupted coordination: [hosted macOS startup diagnosis and repair](h3-macos-startup-20261012.md) preserves the actual old-head macOS8FAIL/110PASS, identifies the35-second reverse-DNS stack, and records new RED/GREEN without enlarging crash budgets. Earlier CPU/software success did not imply that macOS gate passed.
